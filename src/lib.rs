@@ -6,7 +6,7 @@ use std::time;
 
 mod thread;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(target_os = "android")]
 const LOGD_WR_SOCKET: &str = "/dev/socket/logdw";
 
 /// Log priority as defined by logd
