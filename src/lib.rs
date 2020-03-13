@@ -100,6 +100,8 @@ impl From<Buffer> for u8 {
 pub struct Builder<'a> {
     filter: FilterBuilder,
     tag: Option<&'a str>,
+    append_module: Option<bool>,
+    prepend_module: Option<bool>,
     buffer: Option<Buffer>,
 }
 
@@ -159,6 +161,42 @@ impl<'a> Builder<'a> {
     /// ```
     pub fn tag(&mut self, tag: &'a str) -> &mut Self {
         self.tag = Some(tag);
+        self
+    }
+
+    /// Append module to log message. If set true the Rust module path
+    /// is appended to the log message.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use logd_logger::Builder;
+    ///
+    /// let mut builder = Builder::new();
+    ///
+    /// builder.append_module(true)
+    ///     .init();
+    /// ```
+    pub fn append_module(&mut self, append: bool) -> &mut Self {
+        self.append_module = Some(append);
+        self
+    }
+
+    /// Prepend module to log message. If set true the Rust module path
+    /// is prepended to the log message.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use logd_logger::Builder;
+    ///
+    /// let mut builder = Builder::new();
+    ///
+    /// builder.prepend_module(true)
+    ///     .init();
+    /// ```
+    pub fn prepend_module(&mut self, append: bool) -> &mut Self {
+        self.prepend_module = Some(append);
         self
     }
 
@@ -270,18 +308,28 @@ impl<'a> Builder<'a> {
     fn build(&mut self) -> Logger {
         let buffer = self.buffer.unwrap_or(Buffer::Main);
         let filter = self.filter.build();
-        Logger::new(buffer, filter, self.tag.map(str::to_string)).expect("Failed to build logger")
+        let append_module = self.append_module.unwrap_or(false);
+        let prepend_module = self.prepend_module.unwrap_or(false);
+        Logger::new(buffer, filter, self.tag.map(str::to_string), prepend_module, append_module).expect("Failed to build logger")
     }
 }
 
 struct Logger {
     filter: Filter,
     tag: Option<String>,
+    prepend_module: bool,
+    append_module: bool,
     tx: Sender<Record>,
 }
 
 impl Logger {
-    pub fn new(buffer_id: Buffer, filter: Filter, tag: Option<String>) -> Result<Logger, std::io::Error> {
+    pub fn new(
+        buffer_id: Buffer,
+        filter: Filter,
+        tag: Option<String>,
+        prepend_module: bool,
+        append_module: bool,
+    ) -> Result<Logger, std::io::Error> {
         let (tx, rx) = crossbeam::channel::bounded(100);
 
         #[cfg(target_os = "android")]
@@ -359,7 +407,13 @@ impl Logger {
             });
         }
 
-        Ok(Logger { filter, tag, tx })
+        Ok(Logger {
+            filter,
+            tag,
+            prepend_module,
+            append_module,
+            tx,
+        })
     }
 }
 
@@ -373,10 +427,26 @@ impl Log for Logger {
             return;
         }
 
+        let args = record.args().to_string();
         let message = if let Some(module_path) = record.module_path() {
-            format!("{} ({})", record.args(), module_path)
+            let mut message = String::new();
+            message.reserve(256);
+
+            if self.prepend_module {
+                message.push_str(module_path);
+                message.push_str(": ");
+            }
+
+            message.push_str(&args);
+
+            if self.append_module {
+                message.push_str(" (");
+                message.push_str(module_path);
+                message.push(')');
+            }
+            message
         } else {
-            record.args().to_string()
+            args
         };
 
         let process = std::process::id();
