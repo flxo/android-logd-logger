@@ -1,10 +1,29 @@
+#[cfg(target_os = "android")]
 use crossbeam::channel::Sender;
 use env_logger::filter::{Builder as FilterBuilder, Filter};
 use log::{LevelFilter, Log, Metadata, SetLoggerError};
-use std::fmt;
-use std::time;
+use std::{fmt, time};
 
-mod thread;
+mod thread {
+    #[cfg(unix)]
+    #[inline]
+    pub fn id() -> usize {
+        unsafe { libc::pthread_self() as usize }
+    }
+
+    #[cfg(windows)]
+    #[inline]
+    pub fn id() -> usize {
+        unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() as usize }
+    }
+
+    #[cfg(target_os = "redox")]
+    #[inline]
+    pub fn id() -> usize {
+        // Each thread has a separate pid on Redox.
+        syscall::getpid().unwrap()
+    }
+}
 
 #[cfg(target_os = "android")]
 const LOGD_WR_SOCKET: &str = "/dev/socket/logdw";
@@ -319,6 +338,7 @@ struct Logger {
     tag: Option<String>,
     prepend_module: bool,
     append_module: bool,
+    #[cfg(target_os = "android")]
     tx: Sender<Record>,
 }
 
@@ -330,10 +350,12 @@ impl Logger {
         prepend_module: bool,
         append_module: bool,
     ) -> Result<Logger, std::io::Error> {
-        let (tx, rx) = crossbeam::channel::bounded(100);
+        #[cfg(not(target_os = "android"))]
+        let _ = buffer_id;
 
         #[cfg(target_os = "android")]
-        {
+        let tx = {
+            let (tx, rx) = crossbeam::channel::bounded(100);
             use bytes::BufMut;
 
             let socket = std::os::unix::net::UnixDatagram::unbound()?;
@@ -376,42 +398,15 @@ impl Logger {
                     buffer.clear();
                 }
             });
-        }
-
-        #[cfg(not(target_os = "android"))]
-        {
-            use chrono::offset::Utc;
-            use chrono::DateTime;
-
-            let _ = buffer_id;
-            let tag = tag.clone();
-            std::thread::spawn(move || loop {
-                let record: Record = rx.recv().expect("Logd channel error");
-                let timestamp = record.timestamp;
-                let tag = if let Some(ref tag) = tag {
-                    tag.clone()
-                } else {
-                    record.tag.unwrap_or_default()
-                };
-                let message = record.message;
-                let datetime: DateTime<Utc> = timestamp.into();
-                println!(
-                    "{} {} {} {} {}: {}",
-                    datetime.format("%Y-%m-%d %H:%M:%S%.3f"),
-                    record.process,
-                    record.thread,
-                    record.priority,
-                    tag,
-                    message
-                )
-            });
-        }
+            tx
+        };
 
         Ok(Logger {
             filter,
             tag,
             prepend_module,
             append_module,
+            #[cfg(target_os = "android")]
             tx,
         })
     }
@@ -427,6 +422,7 @@ impl Log for Logger {
             return;
         }
 
+        let timestamp = std::time::SystemTime::now();
         let args = record.args().to_string();
         let message = if let Some(module_path) = record.module_path() {
             let mut message = String::new();
@@ -452,24 +448,54 @@ impl Log for Logger {
         let process = std::process::id();
         let thread = thread::id() as u32;
 
-        let tag = if let Some(ref tag) = self.tag {
-            Some(tag.to_string())
-        } else {
-            record.module_path().map(str::to_string)
-        };
+        #[cfg(target_os = "android")]
+        {
+            let tag = if let Some(ref tag) = self.tag {
+                Some(tag.to_string())
+            } else {
+                record.module_path().map(str::to_string)
+            };
+            let record = Record {
+                timestamp,
+                priority: record.metadata().level().into(),
+                tag,
+                message,
+                process,
+                thread,
+            };
+            self.tx.send(record).expect("Failed to log");
+        }
 
-        let record = Record {
-            timestamp: std::time::SystemTime::now(),
-            priority: record.metadata().level().into(),
-            tag,
-            message,
-            process,
-            thread,
-        };
+        #[cfg(not(target_os = "android"))]
+        {
+            use chrono::{offset::Utc, DateTime};
 
-        self.tx.send(record).expect("Failed to log");
+            let datetime: DateTime<Utc> = timestamp.into();
+            let priority: Priority = record.metadata().level().into();
+            let tag = if let Some(ref tag) = self.tag {
+                tag.to_string()
+            } else {
+                record.module_path().map(str::to_string).unwrap_or_default()
+            };
+            println!(
+                "{} {} {} {} {}: {}",
+                datetime.format("%Y-%m-%d %H:%M:%S%.3f"),
+                process,
+                thread,
+                priority,
+                tag,
+                message
+            );
+        }
     }
 
+    #[cfg(not(target_os = "android"))]
+    fn flush(&self) {
+        use std::io::Write;
+        std::io::stdout().flush().ok();
+    }
+
+    #[cfg(target_os = "android")]
     fn flush(&self) {}
 }
 

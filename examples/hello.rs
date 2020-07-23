@@ -19,6 +19,4 @@ fn main() {
     threads.drain(..).for_each(|t| {
         t.join().expect("Failed to join");
     });
-
-    thread::sleep(time::Duration::from_secs(3));
 }
