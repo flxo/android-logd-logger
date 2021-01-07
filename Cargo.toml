@@ -15,21 +15,18 @@ keywords = [
 ]
 
 [dependencies]
-env_logger = { version = "0.7.1", features = ["regex"], default-features = false }
+env_logger = { version = "0.8.2", features = ["regex"], default-features = false }
 log = { version = "0.4.11", features = ["std"] }
-
-[target.'cfg(not(target_os = "android"))'.dependencies]
-chrono = "0.4.13"
+time = "0.2.23"
 
 [target.'cfg(target_os = "android")'.dependencies]
-crossbeam = "0.7.3"
-bytes = "0.5.6"
+bytes = "1.0.0"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.73"
+libc = "0.2.81"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["processthreadsapi"] }
 
 [target.'cfg(target_os = "redox")'.dependencies]
-redox_syscall = "0.1.57"
+redox_syscall = "0.2.1"

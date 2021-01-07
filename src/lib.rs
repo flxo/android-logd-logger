@@ -1,8 +1,10 @@
 #[cfg(target_os = "android")]
-use crossbeam::channel::Sender;
+use bytes::BufMut;
 use env_logger::filter::{Builder as FilterBuilder, Filter};
 use log::{LevelFilter, Log, Metadata, SetLoggerError};
-use std::{fmt, time};
+#[cfg(target_os = "android")]
+use std::os::unix::net::UnixDatagram;
+use std::{fmt, io};
 
 mod thread {
     #[cfg(unix)]
@@ -25,9 +27,7 @@ mod thread {
     }
 }
 
-#[cfg(target_os = "android")]
-const LOGD_WR_SOCKET: &str = "/dev/socket/logdw";
-
+//#[cfg(target_os = "android")]
 /// Log priority as defined by logd
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
@@ -71,23 +71,6 @@ impl From<log::Level> for Priority {
     }
 }
 
-/// Log record
-#[derive(Debug)]
-struct Record {
-    /// Local timestamp of record
-    timestamp: time::SystemTime,
-    /// Log level
-    priority: Priority,
-    /// Log tag
-    tag: Option<String>,
-    /// Log message
-    message: String,
-    /// Thread
-    process: u32,
-    /// Thread
-    thread: u32,
-}
-
 /// Log buffer ids
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
@@ -115,11 +98,19 @@ impl From<Buffer> for u8 {
     }
 }
 
+#[cfg(target_os = "android")]
+thread_local! {
+    pub static SOCKET: UnixDatagram = {
+        let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
+        socket.connect("/dev/socket/logdw").expect("Failed to connect to /dev/socket/logdw");
+        socket
+    };
+}
+
 #[derive(Default)]
 pub struct Builder<'a> {
     filter: FilterBuilder,
     tag: Option<&'a str>,
-    append_module: Option<bool>,
     prepend_module: Option<bool>,
     buffer: Option<Buffer>,
 }
@@ -183,24 +174,6 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Append module to log message. If set true the Rust module path
-    /// is appended to the log message.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use logd_logger::Builder;
-    ///
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.append_module(true)
-    ///     .init();
-    /// ```
-    pub fn append_module(&mut self, append: bool) -> &mut Self {
-        self.append_module = Some(append);
-        self
-    }
-
     /// Prepend module to log message. If set true the Rust module path
     /// is prepended to the log message.
     ///
@@ -214,8 +187,8 @@ impl<'a> Builder<'a> {
     /// builder.prepend_module(true)
     ///     .init();
     /// ```
-    pub fn prepend_module(&mut self, append: bool) -> &mut Self {
-        self.prepend_module = Some(append);
+    pub fn prepend_module(&mut self, prepend: bool) -> &mut Self {
+        self.prepend_module = Some(prepend);
         self
     }
 
@@ -327,9 +300,8 @@ impl<'a> Builder<'a> {
     fn build(&mut self) -> Logger {
         let buffer = self.buffer.unwrap_or(Buffer::Main);
         let filter = self.filter.build();
-        let append_module = self.append_module.unwrap_or(false);
         let prepend_module = self.prepend_module.unwrap_or(false);
-        Logger::new(buffer, filter, self.tag.map(str::to_string), prepend_module, append_module).expect("Failed to build logger")
+        Logger::new(buffer, filter, self.tag.map(str::to_string), prepend_module).expect("Failed to build logger")
     }
 }
 
@@ -337,77 +309,16 @@ struct Logger {
     filter: Filter,
     tag: Option<String>,
     prepend_module: bool,
-    append_module: bool,
-    #[cfg(target_os = "android")]
-    tx: Sender<Record>,
+    _buffer_id: Buffer,
 }
 
 impl Logger {
-    pub fn new(
-        buffer_id: Buffer,
-        filter: Filter,
-        tag: Option<String>,
-        prepend_module: bool,
-        append_module: bool,
-    ) -> Result<Logger, std::io::Error> {
-        #[cfg(not(target_os = "android"))]
-        let _ = buffer_id;
-
-        #[cfg(target_os = "android")]
-        let tx = {
-            let (tx, rx) = crossbeam::channel::bounded(100);
-            use bytes::BufMut;
-
-            let socket = std::os::unix::net::UnixDatagram::unbound()?;
-            socket.connect(LOGD_WR_SOCKET)?;
-            let tag = tag.clone();
-            std::thread::spawn(move || {
-                let mut buffer = bytes::BytesMut::with_capacity(1024);
-                loop {
-                    let record: Record = rx.recv().expect("Logd channel error");
-                    let timestamp = record
-                        .timestamp
-                        .duration_since(time::UNIX_EPOCH)
-                        .expect("Logd timestamp error");
-
-                    let tag_len = if let Some(ref tag) = tag {
-                        tag.bytes().len()
-                    } else {
-                        record.tag.as_ref().map(|s| s.bytes().len()).unwrap_or(0)
-                    } + 1;
-                    let message_len = record.message.bytes().len() + 1;
-                    buffer.reserve(12 + tag_len + message_len);
-
-                    buffer.put_u8(buffer_id.into());
-                    buffer.put_u16_le(record.thread as u16);
-                    buffer.put_u32_le(timestamp.as_secs() as u32);
-                    buffer.put_u32_le(timestamp.subsec_nanos());
-                    buffer.put_u8(record.priority as u8);
-
-                    if let Some(ref tag) = tag {
-                        buffer.put(tag.as_bytes());
-                    } else {
-                        buffer.put(record.tag.unwrap_or_default().as_bytes());
-                    };
-                    buffer.put_u8(0);
-
-                    buffer.put(record.message.as_bytes());
-                    buffer.put_u8(0);
-
-                    socket.send(&buffer).expect("Logd socket error");
-                    buffer.clear();
-                }
-            });
-            tx
-        };
-
+    pub fn new(buffer_id: Buffer, filter: Filter, tag: Option<String>, prepend_module: bool) -> Result<Logger, io::Error> {
         Ok(Logger {
             filter,
             tag,
             prepend_module,
-            append_module,
-            #[cfg(target_os = "android")]
-            tx,
+            _buffer_id: buffer_id,
         })
     }
 }
@@ -422,66 +333,69 @@ impl Log for Logger {
             return;
         }
 
-        let timestamp = std::time::SystemTime::now();
         let args = record.args().to_string();
         let message = if let Some(module_path) = record.module_path() {
-            let mut message = String::new();
-            message.reserve(256);
-
             if self.prepend_module {
+                let mut message = String::with_capacity(module_path.len() + args.len());
                 message.push_str(module_path);
                 message.push_str(": ");
+                message.push_str(&args);
+                message
+            } else {
+                args
             }
-
-            message.push_str(&args);
-
-            if self.append_module {
-                message.push_str(" (");
-                message.push_str(module_path);
-                message.push(')');
-            }
-            message
         } else {
             args
         };
 
-        let process = std::process::id();
-        let thread = thread::id() as u32;
+        let priority: Priority = record.metadata().level().into();
 
         #[cfg(target_os = "android")]
         {
+            let timestamp = std::time::SystemTime::now();
+
             let tag = if let Some(ref tag) = self.tag {
-                Some(tag.to_string())
+                tag.clone()
             } else {
-                record.module_path().map(str::to_string)
+                record.module_path().map(str::to_string).unwrap_or_default()
             };
-            let record = Record {
-                timestamp,
-                priority: record.metadata().level().into(),
-                tag,
-                message,
-                process,
-                thread,
-            };
-            self.tx.send(record).expect("Failed to log");
+
+            let tag_len = tag.bytes().len();
+            let message_len = message.bytes().len() + 1;
+
+            let mut buffer = bytes::BytesMut::with_capacity(12 + tag_len + message_len);
+
+            buffer.put_u8(self._buffer_id.into());
+            buffer.put_u16_le(thread::id() as u16);
+            let timestamp = timestamp
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("Failed to aquire time");
+            buffer.put_u32_le(timestamp.as_secs() as u32);
+            buffer.put_u32_le(timestamp.subsec_nanos());
+            buffer.put_u8(priority as u8);
+            buffer.put(tag.as_bytes());
+            buffer.put_u8(0);
+
+            buffer.put(message.as_bytes());
+            buffer.put_u8(0);
+
+            SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
         }
 
         #[cfg(not(target_os = "android"))]
         {
-            use chrono::{offset::Utc, DateTime};
-
-            let datetime: DateTime<Utc> = timestamp.into();
-            let priority: Priority = record.metadata().level().into();
+            let datetime = ::time::OffsetDateTime::now_utc();
             let tag = if let Some(ref tag) = self.tag {
                 tag.to_string()
             } else {
                 record.module_path().map(str::to_string).unwrap_or_default()
             };
             println!(
-                "{} {} {} {} {}: {}",
-                datetime.format("%Y-%m-%d %H:%M:%S%.3f"),
-                process,
-                thread,
+                "{}.{} {} {} {} {}: {}",
+                datetime.format("%Y-%m-%d %T"),
+                &datetime.format("%N")[..3],
+                std::process::id(),
+                thread::id(),
                 priority,
                 tag,
                 message
@@ -492,7 +406,7 @@ impl Log for Logger {
     #[cfg(not(target_os = "android"))]
     fn flush(&self) {
         use std::io::Write;
-        std::io::stdout().flush().ok();
+        io::stdout().flush().ok();
     }
 
     #[cfg(target_os = "android")]

@@ -1,14 +1,17 @@
 use log::*;
-use std::{thread, time};
+use std::thread;
 
 fn main() {
-    logd_logger::builder().parse_filters("debug").tag("hello").init();
+    logd_logger::builder()
+        .parse_filters("debug")
+        .tag("hello")
+        .prepend_module(true)
+        .init();
 
     let mut threads = Vec::new();
-    for i in 0..100 {
-        threads.push(std::thread::spawn(move || {
+    for _ in 0..10 {
+        threads.push(thread::spawn(move || {
             trace!("hello");
-            thread::sleep(time::Duration::from_millis(i));
             debug!("Hello");
             info!("helloHello");
             warn!("hellohello");
