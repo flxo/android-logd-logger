@@ -355,9 +355,9 @@ impl Log for Logger {
             let timestamp = std::time::SystemTime::now();
 
             let tag = if let Some(ref tag) = self.tag {
-                tag.clone()
+                tag
             } else {
-                record.module_path().map(str::to_string).unwrap_or_default()
+                record.module_path().unwrap_or_default()
             };
 
             let tag_len = tag.bytes().len() + 1;
