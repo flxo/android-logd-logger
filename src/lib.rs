@@ -360,7 +360,7 @@ impl Log for Logger {
                 record.module_path().map(str::to_string).unwrap_or_default()
             };
 
-            let tag_len = tag.bytes().len();
+            let tag_len = tag.bytes().len() + 1;
             let message_len = message.bytes().len() + 1;
 
             let mut buffer = bytes::BytesMut::with_capacity(12 + tag_len + message_len);
