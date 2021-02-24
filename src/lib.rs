@@ -71,16 +71,23 @@ impl From<log::Level> for Priority {
     }
 }
 
-/// Log buffer ids
+/// Different Log Buffer for Android
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum Buffer {
+    /// Main Buffer with id 0
     Main,
+    /// Radio Buffer with id 1
     Radio,
+    /// Event Buffer with id 2
     Events,
+    /// System Buffer with id 3
     System,
+    /// Crash Buffer with id 4
     Crash,
+    /// Kernel Buffer with id 5
     Kernel,
+    /// User defined Buffer
     Custom(u8),
 }
 
