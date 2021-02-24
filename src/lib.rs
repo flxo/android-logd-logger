@@ -107,6 +107,10 @@ thread_local! {
     };
 }
 
+/// Builder for initializing logger
+///
+/// The builder is used to initialize the logging framework for later use.
+/// It provides
 #[derive(Default)]
 pub struct Builder<'a> {
     filter: FilterBuilder,
