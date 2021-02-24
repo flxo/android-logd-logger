@@ -351,56 +351,56 @@ impl Log for Logger {
         let priority: Priority = record.metadata().level().into();
 
         #[cfg(target_os = "android")]
-        {
-            let timestamp = std::time::SystemTime::now();
+            {
+                let timestamp = std::time::SystemTime::now();
 
-            let tag = if let Some(ref tag) = self.tag {
-                tag
-            } else {
-                record.module_path().unwrap_or_default()
-            };
+                let tag = if let Some(ref tag) = self.tag {
+                    tag
+                } else {
+                    record.module_path().unwrap_or_default()
+                };
 
-            let tag_len = tag.bytes().len() + 1;
-            let message_len = message.bytes().len() + 1;
+                let tag_len = tag.bytes().len() + 1;
+                let message_len = message.bytes().len() + 1;
 
-            let mut buffer = bytes::BytesMut::with_capacity(12 + tag_len + message_len);
+                let mut buffer = bytes::BytesMut::with_capacity(12 + tag_len + message_len);
 
-            buffer.put_u8(self._buffer_id.into());
-            buffer.put_u16_le(thread::id() as u16);
-            let timestamp = timestamp
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("Failed to aquire time");
-            buffer.put_u32_le(timestamp.as_secs() as u32);
-            buffer.put_u32_le(timestamp.subsec_nanos());
-            buffer.put_u8(priority as u8);
-            buffer.put(tag.as_bytes());
-            buffer.put_u8(0);
+                buffer.put_u8(self._buffer_id.into());
+                buffer.put_u16_le(thread::id() as u16);
+                let timestamp = timestamp
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("Failed to aquire time");
+                buffer.put_u32_le(timestamp.as_secs() as u32);
+                buffer.put_u32_le(timestamp.subsec_nanos());
+                buffer.put_u8(priority as u8);
+                buffer.put(tag.as_bytes());
+                buffer.put_u8(0);
 
-            buffer.put(message.as_bytes());
-            buffer.put_u8(0);
+                buffer.put(message.as_bytes());
+                buffer.put_u8(0);
 
-            SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
-        }
+                SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
+            }
 
         #[cfg(not(target_os = "android"))]
-        {
-            let datetime = ::time::OffsetDateTime::now_utc();
-            let tag = if let Some(ref tag) = self.tag {
-                tag.to_string()
-            } else {
-                record.module_path().map(str::to_string).unwrap_or_default()
-            };
-            println!(
-                "{}.{} {} {} {} {}: {}",
-                datetime.format("%Y-%m-%d %T"),
-                &datetime.format("%N")[..3],
-                std::process::id(),
-                thread::id(),
-                priority,
-                tag,
-                message
-            );
-        }
+            {
+                let datetime = ::time::OffsetDateTime::now_utc();
+                let tag = if let Some(ref tag) = self.tag {
+                    tag.to_string()
+                } else {
+                    record.module_path().map(str::to_string).unwrap_or_default()
+                };
+                println!(
+                    "{}.{} {} {} {} {}: {}",
+                    datetime.format("%Y-%m-%d %T"),
+                    &datetime.format("%N")[..3],
+                    std::process::id(),
+                    thread::id(),
+                    priority,
+                    tag,
+                    message
+                );
+            }
     }
 
     #[cfg(not(target_os = "android"))]
