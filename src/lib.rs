@@ -1,3 +1,56 @@
+//! `logd-logger`
+//! A library to simplify logging on Android.
+//!
+//! The library provides a logd implementation for the API of [log](../log/index.html).
+//! logd-logger is configured once when initiating.
+//! Messages are sent using the macros [`error!`], [`warn!`], [`info!`], [`debug!`] and [`trace!`].
+//!
+//! [`error!`]: ../log/macro.error.html
+//! [`warn!`]: ../log/macro.warn.html
+//! [`info!`]: ../log/macro.info.html
+//! [`debug!`]: ../log/macro.debug.html
+//! [`trace!`]: ../log/macro.trace.html
+//!
+//! # Usage
+//!
+//! First, add this to your Cargo.toml
+//!
+//! ```toml
+//! [dependencies]
+//! logd-logger = "0.1.0"
+//! ```
+//!
+//! Next:
+//! In the exampel the logging is initialized. First a [`Builder`] is created.
+//! Then the log level is set. All messages with lower log level are dropped.
+//! Then a tag is set which is added in front of each log message.
+//! Next, the module name is set to be prepended.
+//! After the configuration, it is tried to initialize the global logger.
+//!
+//! Afterwards five different macros can be used for logging.
+//! These are named after their log level.
+//!
+//! ```
+//! use log::*;
+//! use logd_logger;
+//!
+//! fn main() {
+//!     logd_logger::builder()
+//!         .parse_filters("debug")
+//!         .tag("log_tag")
+//!         .prepend_module(true)
+//!         .init();
+//!
+//!     trace!("trace message: is not logged");
+//!     debug!("debug message");
+//!     info!("info message");
+//!     warn!("warn message");
+//!     error!("error message");
+//! }
+//!
+//! ```
+
+#![deny(missing_docs)]
 #[cfg(target_os = "android")]
 use bytes::BufMut;
 use env_logger::filter::{Builder as FilterBuilder, Filter};
