@@ -21,7 +21,7 @@
 //! ```
 //!
 //! Next:
-//! In the exampel the logging is initialized. First a [`Builder`] is created.
+//! In the example the logging is initialized. First a [`Builder`] is created.
 //! Then the log level is set. All messages with lower log level are dropped.
 //! Then a tag is set which is added in front of each log message.
 //! Next, the module name is set to be prepended.
