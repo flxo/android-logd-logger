@@ -100,7 +100,7 @@ impl From<Buffer> for u8 {
 
 #[cfg(target_os = "android")]
 thread_local! {
-    pub static SOCKET: UnixDatagram = {
+     static SOCKET: UnixDatagram = {
         let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
         socket.connect("/dev/socket/logdw").expect("Failed to connect to /dev/socket/logdw");
         socket
