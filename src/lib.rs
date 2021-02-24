@@ -413,6 +413,13 @@ impl Log for Logger {
     fn flush(&self) {}
 }
 
+/// Returns a default [`Builder`] for configuration and initialization of logging.
+///
+/// With the help of the [`Builder`] the logging is configured.
+/// The tag, filter and buffer can be set.
+/// Additionally it is possible to set whether the modul path appears in a log message.
+///
+/// After a call to [`init`](Builder::init) the global logger is initialized with the configuration.
 pub fn builder<'a>() -> Builder<'a> {
     Builder::default()
 }
