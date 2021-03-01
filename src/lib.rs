@@ -68,11 +68,14 @@ use {bytes::BufMut, std::os::unix::net::UnixDatagram};
 #[macro_use]
 extern crate lazy_static;
 
+#[cfg(target_os = "android")]
+const LOGDW: &str = "/dev/socket/logdw";
+
 #[cfg(all(feature = "tls", not(feature = "shared"), target_os = "android"))]
 thread_local! {
      static SOCKET: UnixDatagram = {
         let socket = UnixDatagram::unbound().expect("Failed to create socket");
-        socket.connect("/dev/socket/logdw").expect("Failed to connect to /dev/socket/logdw");
+        socket.connect(LOGDW).expect("Failed to connect to /dev/socket/logdw");
         socket
     };
 }
@@ -80,9 +83,7 @@ thread_local! {
 lazy_static! {
     static ref SOCKET: UnixDatagram = {
         let socket = UnixDatagram::unbound().expect("Failed to create socket");
-        socket
-            .connect("/dev/socket/logdw")
-            .expect("Failed to connect to /dev/socket/logdw");
+        socket.connect(LOGDW).expect("Failed to connect to /dev/socket/logdw");
         socket
     };
 }
