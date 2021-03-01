@@ -49,6 +49,14 @@
 //! }
 //!
 //! ```
+//!
+//! # Features
+//! For use on Android it is possible to select whether all log messages should
+//! be sent over a shared socket or whether each thread should manage its own
+//! socket.
+//! Default feature is a shared socket.
+//! For thread locale sockets the feature flag `tls` needs to be set and the
+//! default features must be disabled.
 
 #![deny(missing_docs)]
 #[cfg(target_os = "android")]
