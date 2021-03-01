@@ -59,18 +59,14 @@
 //! default features must be disabled.
 
 #![deny(missing_docs)]
-#[cfg(target_os = "android")]
-use bytes::BufMut;
 use env_logger::filter::{Builder as FilterBuilder, Filter};
 use log::{LevelFilter, Log, Metadata, SetLoggerError};
-#[cfg(target_os = "android")]
-use std::os::unix::net::UnixDatagram;
 use std::{fmt, io};
-#[cfg(all(feature = "locked", not(feature = "tls"), target_os = "android"))]
+#[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
 #[macro_use]
 extern crate lazy_static;
 
-#[cfg(all(feature = "tls", not(feature = "locked"), target_os = "android"))]
+#[cfg(all(feature = "tls", not(feature = "shared"), target_os = "android"))]
 thread_local! {
      static SOCKET: UnixDatagram = {
         let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
@@ -78,7 +74,7 @@ thread_local! {
         socket
     };
 }
-#[cfg(all(feature = "locked", not(feature = "tls"), target_os = "android"))]
+#[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
 lazy_static! {
     static ref SOCKET: std::os::unix::net::UnixDatagram = {
         let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
@@ -464,12 +460,12 @@ impl Log for Logger {
             buffer.put(message.as_bytes());
             buffer.put_u8(0);
 
-            #[cfg(all(feature = "tls", not(feature = "locked"), target_os = "android"))]
+            #[cfg(all(feature = "tls", not(feature = "shared"), target_os = "android"))]
             {
                 SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
             }
 
-            #[cfg(all(feature = "locked", not(feature = "tls"), target_os = "android"))]
+            #[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
             {
                 SOCKET.send(&buffer).expect("Logd socket error");
             }
@@ -515,8 +511,8 @@ impl Log for Logger {
 /// After a call to [`init`](Builder::init) the global logger is initialized with the configuration.
 pub fn builder<'a>() -> Builder<'a> {
     assert!(cfg!(any(
-        all(feature = "tls", not(feature = "locked")),
-        all(feature = "locked", not(feature = "tls"))
+        all(feature = "tls", not(feature = "shared")),
+        all(feature = "shared", not(feature = "tls"))
     )));
     Builder::default()
 }
