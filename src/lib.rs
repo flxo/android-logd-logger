@@ -456,8 +456,16 @@ impl Log for Logger {
             buffer.put(message.as_bytes());
             buffer.put_u8(0);
 
+            #[cfg(all(feature = "tls", not(feature = "locked"), target_os = "android"))]
+            {
                 SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
             }
+
+            #[cfg(all(feature = "locked", not(feature = "tls"), target_os = "android"))]
+            {
+                SOCKET.send(&buffer).expect("Logd socket error");
+            }
+        }
 
         #[cfg(not(target_os = "android"))]
             {
