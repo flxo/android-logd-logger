@@ -220,8 +220,8 @@ impl<'a> Builder<'a> {
     /// # Examples
     ///
     /// ```
-    /// use logd_logger::Builder;
-    /// use logd_logger::Buffer;
+    /// # use logd_logger::Builder;
+    /// # use logd_logger::Buffer;
     ///
     /// let mut builder = Builder::new();
     ///
@@ -239,7 +239,7 @@ impl<'a> Builder<'a> {
     /// # Examples
     ///
     /// ```
-    /// use logd_logger::Builder;
+    /// # use logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
     ///
@@ -257,7 +257,7 @@ impl<'a> Builder<'a> {
     /// # Examples
     ///
     /// ```
-    /// use logd_logger::Builder;
+    /// # use logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
     ///
@@ -276,8 +276,8 @@ impl<'a> Builder<'a> {
     /// Only include messages for warning and above for logs in `path::to::module`:
     ///
     /// ```
-    /// use log::LevelFilter;
-    /// use logd_logger::Builder;
+    /// # use log::LevelFilter;
+    /// # use logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
     ///
@@ -295,8 +295,8 @@ impl<'a> Builder<'a> {
     /// Only include messages for warning and above for logs in `path::to::module`:
     ///
     /// ```
-    /// use log::LevelFilter;
-    /// use logd_logger::Builder;
+    /// # use log::LevelFilter;
+    /// # use logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
     ///
@@ -317,8 +317,8 @@ impl<'a> Builder<'a> {
     /// Only include messages for warning and above for logs in `path::to::module`:
     ///
     /// ```
-    /// use log::LevelFilter;
-    /// use logd_logger::Builder;
+    /// # use log::LevelFilter;
+    /// # use logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
     ///
