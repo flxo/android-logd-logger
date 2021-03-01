@@ -468,24 +468,24 @@ impl Log for Logger {
         }
 
         #[cfg(not(target_os = "android"))]
-            {
-                let datetime = ::time::OffsetDateTime::now_utc();
-                let tag = if let Some(ref tag) = self.tag {
-                    tag.to_string()
-                } else {
-                    record.module_path().map(str::to_string).unwrap_or_default()
-                };
-                println!(
-                    "{}.{} {} {} {} {}: {}",
-                    datetime.format("%Y-%m-%d %T"),
-                    &datetime.format("%N")[..3],
-                    std::process::id(),
-                    thread::id(),
-                    priority,
-                    tag,
-                    message
-                );
-            }
+        {
+            let datetime = ::time::OffsetDateTime::now_utc();
+            let tag = if let Some(ref tag) = self.tag {
+                tag
+            } else {
+                record.module_path().unwrap_or_default()
+            };
+            println!(
+                "{}.{} {} {} {} {}: {}",
+                datetime.format("%Y-%m-%d %T"),
+                &datetime.format("%N")[..3],
+                std::process::id(),
+                thread::id(),
+                priority,
+                tag,
+                message
+            );
+        }
     }
 
     #[cfg(not(target_os = "android"))]
