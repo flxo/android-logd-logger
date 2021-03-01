@@ -62,6 +62,8 @@
 use env_logger::filter::{Builder as FilterBuilder, Filter};
 use log::{LevelFilter, Log, Metadata, SetLoggerError};
 use std::{fmt, io};
+#[cfg(target_os = "android")]
+use {bytes::BufMut, std::os::unix::net::UnixDatagram};
 #[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
 #[macro_use]
 extern crate lazy_static;
