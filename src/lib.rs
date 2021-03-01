@@ -464,14 +464,10 @@ impl Log for Logger {
             buffer.put_u8(0);
 
             #[cfg(all(feature = "tls", not(feature = "shared"), target_os = "android"))]
-            {
-                SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
-            }
+            SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
 
             #[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
-            {
-                SOCKET.send(&buffer).expect("Logd socket error");
-            }
+            SOCKET.send(&buffer).expect("Logd socket error");
         }
 
         #[cfg(not(target_os = "android"))]
