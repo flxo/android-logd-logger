@@ -10,6 +10,14 @@ Only one logging implementation may exist at runtime for rusts log API.
 Logd-logger is configured once when initiating.
 Messages are sent using the macros `error!`, `warn!`, `info!`, `debug!` and `trace!`.
 
+## Android
+In case logd-logger is compiled for Android, 
+the log messages are sent to Android's logd socket.
+
+## Other OS
+For other Operating Systems the logging messages are sent to standard out.
+These are displayed in logd format.
+
 # Usage
 
 First, add this to your Cargo.toml
