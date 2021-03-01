@@ -16,7 +16,8 @@ the log messages are sent to Android's logd socket.
 
 ## Other OS
 For other Operating Systems the logging messages are sent to standard out.
-These are displayed in logd format.
+These are displayed in the format that 
+[logcat](https://developer.android.com/studio/command-line/logcat) expects.
 
 # Usage
 First, add this to your Cargo.toml
