@@ -27,9 +27,6 @@
 //! Next, the module name is set to be prepended.
 //! After the configuration, it is tried to initialize the global logger.
 //!
-//! Afterwards five different macros can be used for logging.
-//! These are named after their log level.
-//!
 //! ```
 //! use log::*;
 //! use logd_logger;
