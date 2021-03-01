@@ -19,7 +19,6 @@ For other Operating Systems the logging messages are sent to standard out.
 These are displayed in logd format.
 
 # Usage
-
 First, add this to your Cargo.toml
 
 ```toml
