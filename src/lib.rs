@@ -200,8 +200,8 @@ impl<'a> Builder<'a> {
     /// Create a new builder and configure filters and style:
     ///
     /// ```
-    /// use log::LevelFilter;
-    /// use logd_logger::Builder;
+    /// # use log::LevelFilter;
+    /// # use logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
     ///
