@@ -153,7 +153,7 @@ impl From<log::Level> for Priority {
     }
 }
 
-/// Different Log Buffer for Android
+/// Log buffer ids
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum Buffer {
