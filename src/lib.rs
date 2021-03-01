@@ -58,6 +58,28 @@ use log::{LevelFilter, Log, Metadata, SetLoggerError};
 #[cfg(target_os = "android")]
 use std::os::unix::net::UnixDatagram;
 use std::{fmt, io};
+#[cfg(all(feature = "locked", not(feature = "tls"), target_os = "android"))]
+#[macro_use]
+extern crate lazy_static;
+
+#[cfg(all(feature = "tls", not(feature = "locked"), target_os = "android"))]
+thread_local! {
+     static SOCKET: UnixDatagram = {
+        let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
+        socket.connect("/dev/socket/logdw").expect("Failed to connect to /dev/socket/logdw");
+        socket
+    };
+}
+#[cfg(all(feature = "locked", not(feature = "tls"), target_os = "android"))]
+lazy_static! {
+    static ref SOCKET: std::os::unix::net::UnixDatagram = {
+        let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
+        socket
+            .connect("/dev/socket/logdw")
+            .expect("Failed to connect to /dev/socket/logdw");
+        socket
+    };
+}
 
 mod thread {
     #[cfg(unix)]
@@ -156,15 +178,6 @@ impl From<Buffer> for u8 {
             Buffer::Custom(id) => id,
         }
     }
-}
-
-#[cfg(target_os = "android")]
-thread_local! {
-     static SOCKET: UnixDatagram = {
-        let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
-        socket.connect("/dev/socket/logdw").expect("Failed to connect to /dev/socket/logdw");
-        socket
-    };
 }
 
 /// Builder for initializing logger
