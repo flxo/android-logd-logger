@@ -71,15 +71,15 @@ extern crate lazy_static;
 #[cfg(all(feature = "tls", not(feature = "shared"), target_os = "android"))]
 thread_local! {
      static SOCKET: UnixDatagram = {
-        let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
+        let socket = UnixDatagram::unbound().expect("Failed to create socket");
         socket.connect("/dev/socket/logdw").expect("Failed to connect to /dev/socket/logdw");
         socket
     };
 }
 #[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
 lazy_static! {
-    static ref SOCKET: std::os::unix::net::UnixDatagram = {
-        let socket = std::os::unix::net::UnixDatagram::unbound().expect("Failed to create socket");
+    static ref SOCKET: UnixDatagram = {
+        let socket = UnixDatagram::unbound().expect("Failed to create socket");
         socket
             .connect("/dev/socket/logdw")
             .expect("Failed to connect to /dev/socket/logdw");
