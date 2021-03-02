@@ -2,7 +2,7 @@ use log::*;
 use std::thread;
 
 fn main() {
-    logd_logger::builder()
+    android_logd_logger::builder()
         .parse_filters("debug")
         .tag("hello")
         .prepend_module(true)

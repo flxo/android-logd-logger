@@ -1,11 +1,13 @@
 [package]
-name = "logd-logger"
+name = "android-logd-logger"
 version = "0.1.0"
-authors = ["Felix Obenhuber <felix.obenhuber@esrlabs.com>"]
+authors = ["Felix Obenhuber <felix@obenhuber.de>", "Jens Waechtler <jens.waechtler@esrlabs.com"]
 edition = "2018"
-license = "MIT"
-repository = "https://github.com/flxo/logd-logger"
-homepage = "https://github.com/flxo/logd_logger"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/flxo/android-logd-logger"
+homepage = "https://github.com/flxo/android-logd-logger"
+documentation = "https://docs.rs/android-logd-logger"
 keywords = [
     "adb",
     "android",
@@ -15,22 +17,22 @@ keywords = [
 ]
 
 [dependencies]
-env_logger = { version = "0.8.2", features = ["regex"], default-features = false }
-lazy_static = { version = "1.4.0", optional = true }
-log = { version = "0.4.11", features = ["std"] }
-time = "0.2.23"
+env_logger = { version = "0.8.3", features = ["regex"], default-features = false }
+lazy_static = { version = "1", optional = true }
+log = { version = "0.4.14", features = ["std"] }
+time = "0.2.25"
 
 [target.'cfg(target_os = "android")'.dependencies]
 bytes = "1"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.81"
+libc = "0.2.87"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["processthreadsapi"] }
 
 [target.'cfg(target_os = "redox")'.dependencies]
-redox_syscall = "0.2.1"
+redox_syscall = "0.2.5"
 
 [features]
 default = ["shared"]
