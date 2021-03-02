@@ -1,6 +1,6 @@
 [package]
 name = "android-logd-logger"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Felix Obenhuber <felix@obenhuber.de>", "Jens Waechtler <jens.waechtler@esrlabs.com"]
 description = "A logging implementation for `log` which directly writes to the Android logd daemon"
 edition = "2018"
