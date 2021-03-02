@@ -1,18 +1,27 @@
-//! `logd-logger`
+//! # `logd-logger`
 //! A library to simplify logging on Android.
 //!
-//! The library provides a logd implementation for the API of [log](../log/index.html).
+//! The library provides a logd implementation for the API of [log].
 //! logd-logger is configured once when initiating.
 //! Messages are sent using the macros [`error!`], [`warn!`], [`info!`], [`debug!`] and [`trace!`].
 //!
-//! [`error!`]: ../log/macro.error.html
-//! [`warn!`]: ../log/macro.warn.html
-//! [`info!`]: ../log/macro.info.html
-//! [`debug!`]: ../log/macro.debug.html
-//! [`trace!`]: ../log/macro.trace.html
+//! [log]: https://docs.rs/log/*/log/
+//! [`error!`]: https://docs.rs/log/*/log/macro.error.html
+//! [`warn!`]: https://docs.rs/log/*/log/macro.warn.html
+//! [`info!`]: https://docs.rs/log/*/log/macro.info.html
+//! [`debug!`]: https://docs.rs/log/*/log/macro.debug.html
+//! [`trace!`]: https://docs.rs/log/*/log/macro.trace.html
+//!
+//! ## Android
+//! In case logd-logger is compiled for Android, the log messages are sent to Android's logd socket.
+//!
+//! ## Other OS
+//! For other Operating Systems the logging messages are sent to standard out.
+//! These are displayed in the format that [logcat] expects.
+//!
+//! [logcat]: https://developer.android.com/studio/command-line/logcat
 //!
 //! # Usage
-//!
 //! First, add this to your Cargo.toml
 //!
 //! ```toml
@@ -26,6 +35,8 @@
 //! Then a tag is set which is added in front of each log message.
 //! Next, the module name is set to be prepended.
 //! After the configuration, it is tried to initialize the global logger.
+//!
+//! [`Builder]: crate::Builder
 //!
 //! ```
 //! use log::*;
@@ -52,8 +63,8 @@
 //! be sent over a shared socket or whether each thread should manage its own
 //! socket.
 //! Default feature is a shared socket.
-//! For thread locale sockets the feature flag `tls` needs to be set and the
-//! default features must be disabled.
+//! For thread locale sockets the feature flag `tls` needs to be set, and the
+//! default features must be disabled with `--no-default-features`.
 
 #![deny(missing_docs)]
 use env_logger::filter::{Builder as FilterBuilder, Filter};
