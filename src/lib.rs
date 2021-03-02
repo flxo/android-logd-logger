@@ -511,9 +511,5 @@ impl Log for Logger {
 ///
 /// After a call to [`init`](Builder::init) the global logger is initialized with the configuration.
 pub fn builder<'a>() -> Builder<'a> {
-    assert!(cfg!(any(
-        all(feature = "tls", not(feature = "shared")),
-        all(feature = "shared", not(feature = "tls"))
-    )));
     Builder::default()
 }
