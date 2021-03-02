@@ -24,7 +24,7 @@ Add this to your Cargo.toml
 
 ```toml
 [dependencies]
-logd-logger = "0.1.0"
+android-logd-logger = "0.1.2"
 ```
 Initialize the logger with a fixed `tag` and the module path included
 in the log payload.
