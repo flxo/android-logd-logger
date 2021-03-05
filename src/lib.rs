@@ -63,7 +63,7 @@
 
 #![deny(missing_docs)]
 use env_logger::filter::{Builder as FilterBuilder, Filter};
-#[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
+#[cfg(all(not(feature = "tls"), target_os = "android"))]
 use lazy_static::lazy_static;
 use log::{LevelFilter, Log, Metadata, SetLoggerError};
 use std::{fmt, io};
@@ -73,7 +73,7 @@ use {bytes::BufMut, std::os::unix::net::UnixDatagram};
 #[cfg(target_os = "android")]
 const LOGDW: &str = "/dev/socket/logdw";
 
-#[cfg(all(feature = "tls", not(feature = "shared"), target_os = "android"))]
+#[cfg(all(feature = "tls", target_os = "android"))]
 thread_local! {
      static SOCKET: UnixDatagram = {
         let socket = UnixDatagram::unbound().expect("Failed to create socket");
@@ -81,7 +81,7 @@ thread_local! {
         socket
     };
 }
-#[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
+#[cfg(all(not(feature = "tls"), target_os = "android"))]
 lazy_static! {
     static ref SOCKET: UnixDatagram = {
         let socket = UnixDatagram::unbound().expect("Failed to create socket");
@@ -465,10 +465,10 @@ impl Log for Logger {
             buffer.put(message.as_bytes());
             buffer.put_u8(0);
 
-            #[cfg(all(feature = "tls", not(feature = "shared"), target_os = "android"))]
+            #[cfg(feature = "tls")]
             SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
 
-            #[cfg(all(feature = "shared", not(feature = "tls"), target_os = "android"))]
+            #[cfg(not(feature = "tls"))]
             SOCKET.send(&buffer).expect("Logd socket error");
         }
 
