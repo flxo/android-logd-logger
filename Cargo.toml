@@ -36,6 +36,5 @@ winapi = { version = "0.3.9", features = ["processthreadsapi"] }
 redox_syscall = "0.2.5"
 
 [features]
-default = ["shared"]
+default = ["lazy_static"]
 tls = []
-shared = ["lazy_static"]
