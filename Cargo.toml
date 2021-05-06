@@ -18,13 +18,12 @@ keywords = [
 ]
 
 [dependencies]
+bytes = "1"
 env_logger = { version = "0.8.3", features = ["regex"], default-features = false }
 lazy_static = { version = "1", optional = true }
 log = { version = "0.4.14", features = ["std"] }
+thiserror = "1"
 time = "0.2.25"
-
-[target.'cfg(target_os = "android")'.dependencies]
-bytes = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.87"

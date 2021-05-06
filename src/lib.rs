@@ -43,7 +43,12 @@
 //!     warn!("warn message");
 //!     error!("error message");
 //! }
+//! ```
 //!
+//! To write android logd "events" use `event` or `event_now`, e.g:
+//!
+//! ```
+//! android_logd_logger::write_event_now(1, "test").unwrap();
 //! ```
 //!
 //! # Configuration
@@ -62,16 +67,22 @@
 //!  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 #![deny(missing_docs)]
+
+use bytes::{BufMut, Bytes, BytesMut};
 use env_logger::filter::{Builder as FilterBuilder, Filter};
 #[cfg(all(not(feature = "tls"), target_os = "android"))]
 use lazy_static::lazy_static;
 use log::{LevelFilter, Log, Metadata, SetLoggerError};
-use std::{fmt, io};
 #[cfg(target_os = "android")]
-use {bytes::BufMut, std::os::unix::net::UnixDatagram};
+use std::os::unix::net::UnixDatagram;
+use std::{fmt, io, iter::FromIterator, time::SystemTime};
+use thiserror::Error;
 
 #[cfg(target_os = "android")]
 const LOGDW: &str = "/dev/socket/logdw";
+
+/// Max log entry len
+const LOGGER_ENTRY_MAX_LEN: usize = 5 * 1024;
 
 #[cfg(all(feature = "tls", target_os = "android"))]
 thread_local! {
@@ -109,6 +120,17 @@ mod thread {
         // Each thread has a separate pid on Redox.
         syscall::getpid().unwrap()
     }
+}
+
+/// Error
+#[derive(Error, Debug)]
+pub enum Error {
+    /// IO error
+    #[error("IO error")]
+    Io(#[from] io::Error),
+    /// The supplied event data exceed the maximum length
+    #[error("Event exceeds maximum size")]
+    EventSize,
 }
 
 //#[cfg(target_os = "android")]
@@ -438,7 +460,7 @@ impl Log for Logger {
 
         #[cfg(target_os = "android")]
         {
-            let timestamp = std::time::SystemTime::now();
+            let timestamp = SystemTime::now();
 
             let tag = if let Some(ref tag) = self.tag {
                 tag
@@ -512,4 +534,185 @@ impl Log for Logger {
 /// After a call to [`init`](Builder::init) the global logger is initialized with the configuration.
 pub fn builder<'a>() -> Builder<'a> {
     Builder::default()
+}
+
+/// Event tag
+pub type EventTag = u32;
+
+/// Event name
+pub type EventName = String;
+
+/// Event data
+#[derive(Debug, Clone, PartialEq)]
+pub struct Event {
+    /// Timestamp
+    pub timestamp: SystemTime,
+    /// Tag
+    pub tag: EventTag,
+    /// Value
+    pub value: EventValue,
+}
+
+/// Event's value
+#[derive(Debug, PartialEq, Clone)]
+pub enum EventValue {
+    /// Int value
+    Int(i32),
+    /// Long value
+    Long(i64),
+    /// Float value
+    Float(f32),
+    /// String value
+    String(String),
+    /// List of values
+    List(Vec<EventValue>),
+}
+
+impl EventValue {
+    /// Serialied size
+    pub fn serialized_size(&self) -> usize {
+        match self {
+            EventValue::Int(_) | EventValue::Float(_) => 1 + 4,
+            EventValue::Long(_) => 1 + 8,
+            EventValue::String(s) => 1 + 4 + s.as_bytes().len(),
+            EventValue::List(l) => 1 + 1 + l.iter().map(EventValue::serialized_size).sum::<usize>(),
+        }
+    }
+
+    /// Serialize the event value into bytes
+    pub fn as_bytes(&self) -> Bytes {
+        const EVENT_TYPE_INT: u8 = 0;
+        const EVENT_TYPE_LONG: u8 = 1;
+        const EVENT_TYPE_STRING: u8 = 2;
+        const EVENT_TYPE_LIST: u8 = 3;
+        const EVENT_TYPE_FLOAT: u8 = 4;
+
+        let mut buffer = BytesMut::with_capacity(self.serialized_size());
+        match self {
+            EventValue::Int(num) => {
+                buffer.put_u8(EVENT_TYPE_INT);
+                buffer.put_i32_le(*num);
+            }
+            EventValue::Long(num) => {
+                buffer.put_u8(EVENT_TYPE_LONG);
+                buffer.put_i64_le(*num);
+            }
+            EventValue::Float(num) => {
+                buffer.put_u8(EVENT_TYPE_FLOAT);
+                buffer.put_f32_le(*num);
+            }
+            EventValue::String(string) => {
+                buffer.put_u8(EVENT_TYPE_STRING);
+                buffer.put_u32_le(string.len() as u32);
+                buffer.put(string.as_bytes());
+            }
+            EventValue::List(values) => {
+                buffer.put_u8(EVENT_TYPE_LIST);
+                buffer.put_u8(values.len() as u8);
+                values.iter().for_each(|value| buffer.put(value.as_bytes()));
+            }
+        };
+        buffer.freeze()
+    }
+}
+
+impl From<i32> for EventValue {
+    fn from(v: i32) -> Self {
+        EventValue::Int(v)
+    }
+}
+
+impl From<i64> for EventValue {
+    fn from(v: i64) -> Self {
+        EventValue::Long(v)
+    }
+}
+
+impl From<f32> for EventValue {
+    fn from(v: f32) -> Self {
+        EventValue::Float(v)
+    }
+}
+
+impl From<&str> for EventValue {
+    fn from(v: &str) -> Self {
+        EventValue::String(v.to_string())
+    }
+}
+
+impl<T> FromIterator<T> for EventValue
+where
+    T: Into<EventValue>,
+{
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        EventValue::List(iter.into_iter().map(Into::into).collect())
+    }
+}
+
+impl<T> From<Vec<T>> for EventValue
+where
+    T: Into<EventValue>,
+{
+    fn from(mut v: Vec<T>) -> Self {
+        EventValue::List(v.drain(..).map(|e| e.into()).collect())
+    }
+}
+
+/// Write an event with the timestamp now
+/// ```
+/// use android_logd_logger::{write_event, write_event_now, Error, Event, EventValue};
+/// android_logd_logger::builder().init();
+///
+/// write_event_now(1, "test").unwrap();
+///
+/// let value: Vec<EventValue> = vec![1.into(), "one".into(), 123.3.into()].into();
+/// write_event_now(2, value).unwrap();
+/// ```
+pub fn write_event_now<T: Into<EventValue>>(tag: EventTag, value: T) -> Result<(), Error> {
+    write_event(&Event {
+        timestamp: SystemTime::now(),
+        tag,
+        value: value.into(),
+    })
+}
+
+/// Write an event
+/// ```
+/// use android_logd_logger::{write_event, write_event_now, Error, Event, EventValue};
+/// android_logd_logger::builder().init();
+///
+/// write_event(&Event {
+///     timestamp: std::time::SystemTime::now(),
+///     tag: 1,
+///     value: "blah".into(),
+/// }).unwrap();
+/// ```
+pub fn write_event(event: &Event) -> Result<(), Error> {
+    if event.value.serialized_size() > (LOGGER_ENTRY_MAX_LEN - 1 - 2 - 4 - 4 - 4) {
+        return Err(Error::EventSize);
+    }
+
+    #[cfg(target_os = "android")]
+    {
+        let mut buffer = bytes::BytesMut::with_capacity(LOGGER_ENTRY_MAX_LEN);
+        let timestamp = event.timestamp.elapsed().unwrap();
+
+        buffer.put_u8(Buffer::Events.into());
+        buffer.put_u16_le(thread::id() as u16);
+        buffer.put_u32_le(timestamp.as_secs() as u32);
+        buffer.put_u32_le(timestamp.subsec_nanos());
+        buffer.put_u32_le(event.tag);
+        buffer.put(event.value.as_bytes());
+
+        #[cfg(feature = "tls")]
+        SOCKET.with(|f| f.send(&buffer).map_err(Error::Io))?;
+
+        #[cfg(not(feature = "tls"))]
+        SOCKET.send(&buffer).map_err(Error::Io)?;
+    }
+
+    #[cfg(not(target_os = "android"))]
+    println!("event: {:?}", event);
+
+    Ok(())
 }

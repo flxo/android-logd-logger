@@ -44,7 +44,12 @@ fn main() {
     warn!("warn message");
     error!("error message");
 }
+```
 
+To write android logd "events" use `event` or `event_now`, e.g:
+
+```rust
+android_logd_logger::event_now(1, "hui").unwrap();
 ```
 
 # Configuration
