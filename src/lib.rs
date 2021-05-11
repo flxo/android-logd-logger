@@ -539,9 +539,6 @@ pub fn builder<'a>() -> Builder<'a> {
 /// Event tag
 pub type EventTag = u32;
 
-/// Event name
-pub type EventName = String;
-
 /// Event data
 #[derive(Debug, Clone, PartialEq)]
 pub struct Event {
