@@ -181,18 +181,20 @@ impl From<log::Level> for Priority {
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum Buffer {
-    /// Main Buffer with id 0
+    /// The main log buffer. This is the only log buffer available to apps.
     Main,
-    /// Radio Buffer with id 1
+    /// The radio log buffer
     Radio,
-    /// Event Buffer with id 2
+    /// The event log buffer.
     Events,
-    /// System Buffer with id 3
+    /// The system log buffer.
     System,
-    /// Crash Buffer with id 4
+    /// The crash log buffer.
     Crash,
-    /// Kernel Buffer with id 5
-    Kernel,
+    /// The statistics log buffer.
+    Stats,
+    /// The security log buffer.
+    Security,
     /// User defined Buffer
     Custom(u8),
 }
@@ -205,7 +207,8 @@ impl From<Buffer> for u8 {
             Buffer::Events => 2,
             Buffer::System => 3,
             Buffer::Crash => 4,
-            Buffer::Kernel => 5,
+            Buffer::Stats => 5,
+            Buffer::Security => 6,
             Buffer::Custom(id) => id,
         }
     }
