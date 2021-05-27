@@ -556,6 +556,8 @@ pub struct Event {
 /// Event's value
 #[derive(Debug, PartialEq, Clone)]
 pub enum EventValue {
+    /// Void value
+    Void,
     /// Int value
     Int(i32),
     /// Long value
@@ -572,6 +574,7 @@ impl EventValue {
     /// Serialied size
     pub fn serialized_size(&self) -> usize {
         match self {
+            &EventValue::Void => 0,
             EventValue::Int(_) | EventValue::Float(_) => 1 + 4,
             EventValue::Long(_) => 1 + 8,
             EventValue::String(s) => 1 + 4 + s.as_bytes().len(),
@@ -589,6 +592,7 @@ impl EventValue {
 
         let mut buffer = BytesMut::with_capacity(self.serialized_size());
         match self {
+            EventValue::Void => (),
             EventValue::Int(num) => {
                 buffer.put_u8(EVENT_TYPE_INT);
                 buffer.put_i32_le(*num);
@@ -613,6 +617,12 @@ impl EventValue {
             }
         };
         buffer.freeze()
+    }
+}
+
+impl From<()> for EventValue {
+    fn from(_: ()) -> Self {
+        EventValue::Void
     }
 }
 

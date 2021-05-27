@@ -14,5 +14,7 @@ fn main() -> Result<(), Error> {
     let value: Vec<EventValue> = vec![1.into(), "one".into(), 123.3.into()].into();
     write_event_now(2, value)?;
 
+    write_event_now(3, ())?;
+
     Ok(())
 }
