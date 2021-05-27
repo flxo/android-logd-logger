@@ -658,7 +658,7 @@ where
     }
 }
 
-/// Write an event with the timestamp now
+/// Write an event with the timestamp now to `Buffer::Events`
 /// ```
 /// use android_logd_logger::{write_event, write_event_now, Error, Event, EventValue};
 /// android_logd_logger::builder().init();
@@ -676,9 +676,30 @@ pub fn write_event_now<T: Into<EventValue>>(tag: EventTag, value: T) -> Result<(
     })
 }
 
-/// Write an event
+/// Write an event with the timestamp now to buffer
 /// ```
-/// use android_logd_logger::{write_event, write_event_now, Error, Event, EventValue};
+/// use android_logd_logger::{write_event_buffer_now, Buffer, Error, Event, EventValue};
+/// android_logd_logger::builder().init();
+///
+/// write_event_buffer_now(Buffer::Stats, 1, "test").unwrap();
+///
+/// let value: Vec<EventValue> = vec![1.into(), "one".into(), 123.3.into()].into();
+/// write_event_buffer_now(Buffer::Stats, 2, value).unwrap();
+/// ```
+pub fn write_event_buffer_now<T: Into<EventValue>>(log_buffer: Buffer, tag: EventTag, value: T) -> Result<(), Error> {
+    write_event_buffer(
+        log_buffer,
+        &Event {
+            timestamp: SystemTime::now(),
+            tag,
+            value: value.into(),
+        },
+    )
+}
+
+/// Write an event to `Buffer::Events`
+/// ```
+/// use android_logd_logger::{write_event, Error, Event, EventValue};
 /// android_logd_logger::builder().init();
 ///
 /// write_event(&Event {
@@ -688,6 +709,21 @@ pub fn write_event_now<T: Into<EventValue>>(tag: EventTag, value: T) -> Result<(
 /// }).unwrap();
 /// ```
 pub fn write_event(event: &Event) -> Result<(), Error> {
+    write_event_buffer(Buffer::Events, event)
+}
+
+/// Write an event to an explicit buffer
+/// ```
+/// use android_logd_logger::{write_event_buffer, Buffer, Error, Event, EventValue};
+/// android_logd_logger::builder().init();
+///
+/// write_event_buffer(Buffer::Stats, &Event {
+///     timestamp: std::time::SystemTime::now(),
+///     tag: 1,
+///     value: "blah".into(),
+/// }).unwrap();
+/// ```
+pub fn write_event_buffer(log_buffer: Buffer, event: &Event) -> Result<(), Error> {
     if event.value.serialized_size() > (LOGGER_ENTRY_MAX_LEN - 1 - 2 - 4 - 4 - 4) {
         return Err(Error::EventSize);
     }
@@ -697,7 +733,7 @@ pub fn write_event(event: &Event) -> Result<(), Error> {
         let mut buffer = bytes::BytesMut::with_capacity(LOGGER_ENTRY_MAX_LEN);
         let timestamp = event.timestamp.elapsed().unwrap();
 
-        buffer.put_u8(Buffer::Events.into());
+        buffer.put_u8(log_buffer.into());
         buffer.put_u16_le(thread::id() as u16);
         buffer.put_u32_le(timestamp.as_secs() as u32);
         buffer.put_u32_le(timestamp.subsec_nanos());
@@ -712,7 +748,7 @@ pub fn write_event(event: &Event) -> Result<(), Error> {
     }
 
     #[cfg(not(target_os = "android"))]
-    println!("event: {:?}", event);
+    println!("buffer: {:?}, event: {:?}", log_buffer, event);
 
     Ok(())
 }
