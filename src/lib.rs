@@ -1,5 +1,16 @@
 //! # `android-logd-logger`
 //!
+//! [![Crates.io][crates-badge]][crates-url]
+//! [![Build Status][actions-badge]][actions-url]
+//! [![Docs][docs-badge]][docs-url]
+//!
+//! [docs-badge]: https://docs.rs/android-logd-logger/badge.svg
+//! [docs-url]: https://docs.rs/android-logd-logger
+//! [crates-badge]: https://img.shields.io/crates/v/android-logd-logger.svg
+//! [crates-url]: https://crates.io/crates/android-logd-logger
+//! [actions-badge]: https://github.com/flxo/android-logd-logger/workflows/CI/badge.svg
+//! [actions-url]: https://github.com/flxo/android-logd-logger/actions?query=workflow%3ACI+branch%3Amaster
+//!
 //! This logger writes logs to the Android `logd`, a system service with
 //! multiple ringbuffers for logs and evens. This is normally done
 //! via `liblog` (a native Android lib). Instead of using `liblog`, this crate
@@ -22,8 +33,9 @@
 //!
 //! ```toml
 //! [dependencies]
-//! android-logd-logger = "0.1.2"
+//! android-logd-logger = "0.2.1"
 //! ```
+//!
 //! Initialize the logger with a fixed `tag` and the module path included
 //! in the log payload.
 //!
