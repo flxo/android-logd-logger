@@ -753,7 +753,7 @@ pub fn write_event_buffer(log_buffer: Buffer, event: &Event) -> Result<(), Error
     #[cfg(target_os = "android")]
     {
         let mut buffer = bytes::BytesMut::with_capacity(LOGGER_ENTRY_MAX_LEN);
-        let timestamp = event.timestamp.elapsed().unwrap();
+        let timestamp = event.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap();
 
         buffer.put_u8(log_buffer.into());
         buffer.put_u16_le(thread::id() as u16);
