@@ -90,6 +90,8 @@ use std::os::unix::net::UnixDatagram;
 use std::{fmt, io, iter::FromIterator, time::SystemTime};
 use thiserror::Error;
 
+mod thread;
+
 #[cfg(target_os = "android")]
 const LOGDW: &str = "/dev/socket/logdw";
 
@@ -111,27 +113,6 @@ lazy_static! {
         socket.connect(LOGDW).expect("Failed to connect to /dev/socket/logdw");
         socket
     };
-}
-
-mod thread {
-    #[cfg(unix)]
-    #[inline]
-    pub fn id() -> usize {
-        unsafe { libc::pthread_self() as usize }
-    }
-
-    #[cfg(windows)]
-    #[inline]
-    pub fn id() -> usize {
-        unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() as usize }
-    }
-
-    #[cfg(target_os = "redox")]
-    #[inline]
-    pub fn id() -> usize {
-        // Each thread has a separate pid on Redox.
-        syscall::getpid().unwrap()
-    }
 }
 
 /// Error
