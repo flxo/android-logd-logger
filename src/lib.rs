@@ -82,38 +82,17 @@
 
 use bytes::{BufMut, Bytes, BytesMut};
 use env_logger::filter::{Builder as FilterBuilder, Filter};
-#[cfg(all(not(feature = "tls"), target_os = "android"))]
-use lazy_static::lazy_static;
 use log::{LevelFilter, Log, Metadata, SetLoggerError};
-#[cfg(target_os = "android")]
-use std::os::unix::net::UnixDatagram;
 use std::{fmt, io, iter::FromIterator, time::SystemTime};
 use thiserror::Error;
 
+#[allow(dead_code)]
+#[cfg(not(target_os = "windows"))]
+mod logd;
 mod thread;
-
-#[cfg(target_os = "android")]
-const LOGDW: &str = "/dev/socket/logdw";
 
 /// Max log entry len
 const LOGGER_ENTRY_MAX_LEN: usize = 5 * 1024;
-
-#[cfg(all(feature = "tls", target_os = "android"))]
-thread_local! {
-     static SOCKET: UnixDatagram = {
-        let socket = UnixDatagram::unbound().expect("Failed to create socket");
-        socket.connect(LOGDW).expect("Failed to connect to /dev/socket/logdw");
-        socket
-    };
-}
-#[cfg(all(not(feature = "tls"), target_os = "android"))]
-lazy_static! {
-    static ref SOCKET: UnixDatagram = {
-        let socket = UnixDatagram::unbound().expect("Failed to create socket");
-        socket.connect(LOGDW).expect("Failed to connect to /dev/socket/logdw");
-        socket
-    };
-}
 
 /// Error
 #[derive(Error, Debug)]
@@ -453,55 +432,22 @@ impl Log for Logger {
         };
 
         let priority: Priority = record.metadata().level().into();
+        let tag = if let Some(ref tag) = self.tag {
+            tag
+        } else {
+            record.module_path().unwrap_or_default()
+        };
 
         #[cfg(target_os = "android")]
-        {
-            let timestamp = SystemTime::now();
-
-            let tag = if let Some(ref tag) = self.tag {
-                tag
-            } else {
-                record.module_path().unwrap_or_default()
-            };
-
-            let tag_len = tag.bytes().len() + 1;
-            let message_len = message.bytes().len() + 1;
-
-            let mut buffer = bytes::BytesMut::with_capacity(12 + tag_len + message_len);
-
-            buffer.put_u8(self._buffer_id.into());
-            buffer.put_u16_le(thread::id() as u16);
-            let timestamp = timestamp
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("Failed to aquire time");
-            buffer.put_u32_le(timestamp.as_secs() as u32);
-            buffer.put_u32_le(timestamp.subsec_nanos());
-            buffer.put_u8(priority as u8);
-            buffer.put(tag.as_bytes());
-            buffer.put_u8(0);
-
-            buffer.put(message.as_bytes());
-            buffer.put_u8(0);
-
-            #[cfg(feature = "tls")]
-            SOCKET.with(|f| f.send(&buffer).expect("Logd socket error"));
-
-            #[cfg(not(feature = "tls"))]
-            SOCKET.send(&buffer).expect("Logd socket error");
-        }
+        logd::log(tag, self._buffer_id, priority, &message);
 
         #[cfg(not(target_os = "android"))]
         {
-            let datetime = ::time::OffsetDateTime::now_utc();
-            let tag = if let Some(ref tag) = self.tag {
-                tag
-            } else {
-                record.module_path().unwrap_or_default()
-            };
+            let now = ::time::OffsetDateTime::now_utc();
             println!(
                 "{}.{} {} {} {} {}: {}",
-                datetime.format("%Y-%m-%d %T"),
-                &datetime.format("%N")[..3],
+                now.format("%Y-%m-%d %T"),
+                &now.format("%N")[..3],
                 std::process::id(),
                 thread::id(),
                 priority,
@@ -732,23 +678,7 @@ pub fn write_event_buffer(log_buffer: Buffer, event: &Event) -> Result<(), Error
     }
 
     #[cfg(target_os = "android")]
-    {
-        let mut buffer = bytes::BytesMut::with_capacity(LOGGER_ENTRY_MAX_LEN);
-        let timestamp = event.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap();
-
-        buffer.put_u8(log_buffer.into());
-        buffer.put_u16_le(thread::id() as u16);
-        buffer.put_u32_le(timestamp.as_secs() as u32);
-        buffer.put_u32_le(timestamp.subsec_nanos());
-        buffer.put_u32_le(event.tag);
-        buffer.put(event.value.as_bytes());
-
-        #[cfg(feature = "tls")]
-        SOCKET.with(|f| f.send(&buffer).map_err(Error::Io))?;
-
-        #[cfg(not(feature = "tls"))]
-        SOCKET.send(&buffer).map_err(Error::Io)?;
-    }
+    logd::write_event(log_buffer, event);
 
     #[cfg(not(target_os = "android"))]
     println!("buffer: {:?}, event: {:?}", log_buffer, event);
