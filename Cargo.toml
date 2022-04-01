@@ -1,6 +1,6 @@
 [package]
 name = "android-logd-logger"
-version = "0.2.3-alpha.0"
+version = "0.3.0-alpha.0"
 authors = ["Felix Obenhuber <felix@obenhuber.de>", "Jens Waechtler <jens.waechtler@esrlabs.com>"]
 description = "A logging implementation for `log` which directly writes to the Android logd daemon"
 edition = "2018"
@@ -19,21 +19,24 @@ keywords = [
 
 [dependencies]
 bytes = "1"
-env_logger = { version = "0.8.3", features = ["regex"], default-features = false }
+env_logger = { version = "0.9", features = ["regex"], default-features = false }
 lazy_static = { version = "1", optional = true }
-log = { version = "0.4.14", features = ["std"] }
+log = { version = "0.4", features = ["std"] }
+parking_lot = "0.12.0"
 thiserror = "1"
-time = "0.2.25"
+time = "0.2"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.87"
+libc = "0.2.121"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["processthreadsapi"] }
 
 [target.'cfg(target_os = "redox")'.dependencies]
-redox_syscall = "0.2.5"
+redox_syscall = "0.2.13"
 
 [features]
 default = ["lazy_static"]
-tls = []
+
+[dev-dependencies]
+tempfile = "3.3.0"
