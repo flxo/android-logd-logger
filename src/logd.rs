@@ -13,7 +13,7 @@ lazy_static::lazy_static! {
 }
 
 /// Logd write socket abstraction. Sends never fail and on each send a reconnect
-/// reconnect attempt is made.
+/// attempt is made.
 struct LogdSocket {
     socket: parking_lot::RwLock<UnixDatagram>,
 }
