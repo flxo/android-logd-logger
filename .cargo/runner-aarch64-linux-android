@@ -7,6 +7,6 @@ BIN=`basename $1`
 
 adb remount
 adb push $1 /system/bin
-adb shell /system/bin/$BIN ${@:2}
 adb shell chmod +x /system/bin/$BIN 
+adb shell /system/bin/$BIN ${@:2}
 adb shell rm /system/bin/$BIN
