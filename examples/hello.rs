@@ -4,7 +4,6 @@ use std::thread;
 fn main() {
     android_logd_logger::builder()
         .parse_filters("debug")
-        .tag("hello")
         .prepend_module(true)
         .init();
 
@@ -12,7 +11,7 @@ fn main() {
     for _ in 0..10 {
         threads.push(thread::spawn(move || {
             trace!("hello");
-            debug!("Hello");
+            debug!(target: "example", "Hello");
             info!("helloHello");
             warn!("hellohello");
             error!("HELLOHELLO");

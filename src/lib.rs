@@ -432,10 +432,7 @@ impl Log for Logger {
         };
 
         let priority: Priority = record.metadata().level().into();
-        let tag = self
-            .tag
-            .as_deref()
-            .unwrap_or_else(|| record.module_path().unwrap_or_default());
+        let tag = self.tag.as_deref().unwrap_or_else(|| record.target());
 
         #[cfg(target_os = "android")]
         logd::log(tag, self._buffer_id, priority, &message);
