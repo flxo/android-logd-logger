@@ -186,19 +186,38 @@ impl From<Buffer> for u8 {
     }
 }
 
+/// Tag mode
+#[derive(Debug, Clone)]
+enum TagMode {
+    /// Use the records target metadata as tag
+    Target,
+    /// Use root module as tag. The target field contains the module path
+    /// if not overwritten. Use the root module as tag. e.g a target of
+    /// `crate::module::submodule` will be `crate`.
+    TargetStrip,
+    /// Custom fixed tag string
+    Custom(String),
+}
+
+impl Default for TagMode {
+    fn default() -> Self {
+        TagMode::TargetStrip
+    }
+}
+
 /// Builder for initializing logger
 ///
 /// The builder is used to initialize the logging framework for later use.
 /// It provides
 #[derive(Default)]
-pub struct Builder<'a> {
+pub struct Builder {
     filter: FilterBuilder,
-    tag: Option<&'a str>,
-    prepend_module: Option<bool>,
+    tag: TagMode,
+    prepend_module: bool,
     buffer: Option<Buffer>,
 }
 
-impl<'a> Builder<'a> {
+impl<'a> Builder {
     /// Initializes the log builder with defaults.
     ///
     /// # Examples
@@ -210,18 +229,16 @@ impl<'a> Builder<'a> {
     /// # use android_logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
-    ///
-    /// builder.filter(None, LevelFilter::Info)
-    ///        .init();
+    /// builder.filter(None, LevelFilter::Info).init();
     /// ```
     ///
     /// [`filter`]: #method.filter
-    pub fn new() -> Builder<'a> {
+    pub fn new() -> Builder {
         Builder::default()
     }
 
     /// Use a specific android log buffer. Defaults to the main buffer
-    /// is used as tag (if present)
+    /// is used as tag (if present).
     ///
     /// # Examples
     ///
@@ -230,7 +247,6 @@ impl<'a> Builder<'a> {
     /// # use android_logd_logger::Buffer;
     ///
     /// let mut builder = Builder::new();
-    ///
     /// builder.buffer(Buffer::Crash)
     ///     .init();
     /// ```
@@ -240,7 +256,7 @@ impl<'a> Builder<'a> {
     }
 
     /// Use a specific log tag. If no tag is set the module path
-    /// is used as tag (if present)
+    /// is used as tag (if present).
     ///
     /// # Examples
     ///
@@ -252,13 +268,12 @@ impl<'a> Builder<'a> {
     /// builder.tag("foo")
     ///     .init();
     /// ```
-    pub fn tag(&mut self, tag: &'a str) -> &mut Self {
-        self.tag = Some(tag);
+    pub fn tag(&mut self, tag: &str) -> &mut Self {
+        self.tag = TagMode::Custom(tag.to_string());
         self
     }
 
-    /// Prepend module to log message. If set true the Rust module path
-    /// is prepended to the log message.
+    /// Use the target string as tag
     ///
     /// # Examples
     ///
@@ -266,12 +281,42 @@ impl<'a> Builder<'a> {
     /// # use android_logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
-    ///
-    /// builder.prepend_module(true)
-    ///     .init();
+    /// builder.tag_target().init();
     /// ```
-    pub fn prepend_module(&mut self, prepend: bool) -> &mut Self {
-        self.prepend_module = Some(prepend);
+    pub fn tag_target(&mut self) -> &mut Self {
+        self.tag = TagMode::Target;
+        self
+    }
+
+    /// Use the target string as tag and strip off ::.*
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use android_logd_logger::Builder;
+    ///
+    /// let mut builder = Builder::new();
+    /// builder.tag_target_strip().init();
+    /// ```
+    pub fn tag_target_strip(&mut self) -> &mut Self {
+        self.tag = TagMode::TargetStrip;
+        self
+    }
+
+    /// Prepend module to log message.
+    ///
+    /// If set true the Rust module path is prepended to the log message.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use android_logd_logger::Builder;
+    ///
+    /// let mut builder = Builder::new();
+    /// builder.prepend_module(true).init();
+    /// ```
+    pub fn prepend_module(&mut self, prepend_module: bool) -> &mut Self {
+        self.prepend_module = prepend_module;
         self
     }
 
@@ -287,7 +332,7 @@ impl<'a> Builder<'a> {
     ///
     /// let mut builder = Builder::new();
     ///
-    /// builder.filter_module("path::to::module", LevelFilter::Info);
+    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
     /// ```
     pub fn filter_module(&mut self, module: &str, level: LevelFilter) -> &mut Self {
         self.filter.filter_module(module, level);
@@ -305,8 +350,7 @@ impl<'a> Builder<'a> {
     /// # use android_logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
-    ///
-    /// builder.filter_level(LevelFilter::Info);
+    /// builder.filter_level(LevelFilter::Info).init();
     /// ```
     pub fn filter_level(&mut self, level: LevelFilter) -> &mut Self {
         self.filter.filter_level(level);
@@ -327,8 +371,7 @@ impl<'a> Builder<'a> {
     /// # use android_logd_logger::Builder;
     ///
     /// let mut builder = Builder::new();
-    ///
-    /// builder.filter(Some("path::to::module"), LevelFilter::Info);
+    /// builder.filter(Some("path::to::module"), LevelFilter::Info).init();
     /// ```
     pub fn filter(&mut self, module: Option<&str>, level: LevelFilter) -> &mut Self {
         self.filter.filter(module, level);
@@ -383,25 +426,26 @@ impl<'a> Builder<'a> {
     fn build(&mut self) -> Logger {
         let buffer = self.buffer.unwrap_or(Buffer::Main);
         let filter = self.filter.build();
-        let prepend_module = self.prepend_module.unwrap_or(false);
-        Logger::new(buffer, filter, self.tag.map(str::to_string), prepend_module).expect("Failed to build logger")
+        let prepend_module = self.prepend_module;
+        Logger::new(buffer, filter, self.tag.clone(), prepend_module).expect("Failed to build logger")
     }
 }
 
 struct Logger {
     filter: Filter,
-    tag: Option<String>,
+    tag: TagMode,
     prepend_module: bool,
-    _buffer_id: Buffer,
+    #[allow(unused)]
+    buffer_id: Buffer,
 }
 
 impl Logger {
-    pub fn new(buffer_id: Buffer, filter: Filter, tag: Option<String>, prepend_module: bool) -> Result<Logger, io::Error> {
+    pub fn new(buffer_id: Buffer, filter: Filter, tag: TagMode, prepend_module: bool) -> Result<Logger, io::Error> {
         Ok(Logger {
             filter,
             tag,
             prepend_module,
-            _buffer_id: buffer_id,
+            buffer_id,
         })
     }
 }
@@ -419,11 +463,7 @@ impl Log for Logger {
         let args = record.args().to_string();
         let message = if let Some(module_path) = record.module_path() {
             if self.prepend_module {
-                let mut message = String::with_capacity(module_path.len() + args.len());
-                message.push_str(module_path);
-                message.push_str(": ");
-                message.push_str(&args);
-                message
+                [module_path, &args].join(": ")
             } else {
                 args
             }
@@ -432,10 +472,18 @@ impl Log for Logger {
         };
 
         let priority: Priority = record.metadata().level().into();
-        let tag = self.tag.as_deref().unwrap_or_else(|| record.target());
+        let tag = match &self.tag {
+            TagMode::Target => record.target(),
+            TagMode::TargetStrip => record
+                .target()
+                .split_once("::")
+                .map(|(tag, _)| tag)
+                .unwrap_or_else(|| record.target()),
+            TagMode::Custom(tag) => tag.as_str(),
+        };
 
         #[cfg(target_os = "android")]
-        logd::log(tag, self._buffer_id, priority, &message);
+        logd::log(tag, self.buffer_id, priority, &message);
 
         #[cfg(not(target_os = "android"))]
         {
@@ -470,7 +518,7 @@ impl Log for Logger {
 /// Additionally it is possible to set whether the modul path appears in a log message.
 ///
 /// After a call to [`init`](Builder::init) the global logger is initialized with the configuration.
-pub fn builder<'a>() -> Builder<'a> {
+pub fn builder() -> Builder {
     Builder::default()
 }
 

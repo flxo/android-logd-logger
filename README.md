@@ -46,7 +46,7 @@ in the log payload.
 fn main() {
     android_logd_logger::builder()
         .parse_filters("debug")
-        .tag("log_tag")
+        .tag(TagMode::TargetStrip)
         .prepend_module(true)
         .init();
 

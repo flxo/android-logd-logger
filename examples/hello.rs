@@ -1,24 +1,26 @@
 use log::*;
-use std::thread;
 
 fn main() {
     android_logd_logger::builder()
         .parse_filters("debug")
+        .tag_target_strip()
         .prepend_module(true)
         .init();
 
-    let mut threads = Vec::new();
-    for _ in 0..10 {
-        threads.push(thread::spawn(move || {
-            trace!("hello");
-            debug!(target: "example", "Hello");
-            info!("helloHello");
-            warn!("hellohello");
-            error!("HELLOHELLO");
-        }));
-    }
+    trace!("hello");
+    info!("helloHello");
+    warn!("hellohello");
+    error!("HELLOHELLO");
 
-    threads.drain(..).for_each(|t| {
-        t.join().expect("Failed to join");
-    });
+    // Use a custom target string that is used as tag
+    info!(target: "custom", "hello custom target");
+
+    // Invoke a log from a submodule
+    hello_again::hello();
+}
+
+mod hello_again {
+    pub fn hello() {
+        log::debug!("target set to hello");
+    }
 }
