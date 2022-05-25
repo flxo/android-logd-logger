@@ -1,4 +1,9 @@
-use std::{io, os::unix::net::UnixDatagram, path::Path, time::SystemTime};
+use std::{
+    io::{self, ErrorKind},
+    os::unix::net::UnixDatagram,
+    path::Path,
+    time::SystemTime,
+};
 
 use bytes::BufMut;
 use parking_lot::RwLockUpgradableReadGuard;
@@ -25,8 +30,17 @@ impl LogdSocket {
     ///
     /// This function panics when the socket cannot be created.
     pub fn connect(path: &Path) -> LogdSocket {
-        let socket = UnixDatagram::unbound().expect("Failed to create socket");
+        let socket = UnixDatagram::unbound().expect("failed to create socket");
+
+        // Ignore connect failures because this will be retried.
         socket.connect(path).ok();
+
+        // The logd socket is a datagram socket. If a write fails the logd might be
+        // under heavy load and is unable to process this write.
+        socket
+            .set_nonblocking(true)
+            .expect("failed to set the logd socket to non blocking");
+
         let lock = parking_lot::RwLock::new(socket);
         LogdSocket { socket: lock }
     }
@@ -35,17 +49,24 @@ impl LogdSocket {
     /// reconnect to the log daemon and try again.
     pub fn send(&self, buffer: &[u8]) -> io::Result<()> {
         let lock = self.socket.upgradable_read();
-        if lock.send(buffer).is_err() {
-            // Try to crate an unbounded socket. Expect this to work.
-            let socket = UnixDatagram::unbound()?;
+        match lock.send(buffer) {
+            Ok(_) => (),
+            Err(e) if e.kind() == ErrorKind::WouldBlock => (), // discard
+            Err(_) => {
+                // Try to crate an unbounded socket. Expect this to work.
+                let socket = UnixDatagram::unbound()?;
 
-            // Upgrade the read lock and replace the socket if the sent attempt is successful.
-            let mut lock = RwLockUpgradableReadGuard::upgrade(lock);
-            socket.connect(LOGDW)?;
-            socket.send(buffer)?;
-            // Assign the new socket to the lock. In the worst case one or more threads
-            // are opening sockets to logd which are immediately closed.
-            *lock = socket;
+                // Upgrade the read lock and replace the socket if the sent attempt is successful.
+                let mut lock = RwLockUpgradableReadGuard::upgrade(lock);
+                socket.connect(LOGDW)?;
+                socket.set_nonblocking(true)?;
+
+                socket.send(buffer)?;
+
+                // Assign the new socket to the lock. In the worst case one or more threads
+                // are opening sockets to logd which are immediately closed.
+                *lock = socket;
+            }
         }
         Ok(())
     }
