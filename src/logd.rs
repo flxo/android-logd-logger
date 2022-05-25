@@ -1,4 +1,9 @@
-use std::{io, os::unix::net::UnixDatagram, path::Path, time::SystemTime};
+use std::{
+    io::{self, ErrorKind},
+    os::unix::net::UnixDatagram,
+    path::Path,
+    time::{self, SystemTime},
+};
 
 use bytes::BufMut;
 use parking_lot::RwLockUpgradableReadGuard;
@@ -7,6 +12,8 @@ use crate::{thread, Buffer, Event, Priority, LOGGER_ENTRY_MAX_LEN};
 
 /// Logd write socket path
 const LOGDW: &str = "/dev/socket/logdw";
+
+const WRITE_TIMEOUT: time::Duration = time::Duration::from_millis(500);
 
 lazy_static::lazy_static! {
     static ref SOCKET: LogdSocket = LogdSocket::connect(Path::new(LOGDW));
@@ -27,6 +34,9 @@ impl LogdSocket {
     pub fn connect(path: &Path) -> LogdSocket {
         let socket = UnixDatagram::unbound().expect("Failed to create socket");
         socket.connect(path).ok();
+        socket
+            .set_write_timeout(Some(WRITE_TIMEOUT))
+            .expect("Failed to set write timeout");
         let lock = parking_lot::RwLock::new(socket);
         LogdSocket { socket: lock }
     }
@@ -35,17 +45,24 @@ impl LogdSocket {
     /// reconnect to the log daemon and try again.
     pub fn send(&self, buffer: &[u8]) -> io::Result<()> {
         let lock = self.socket.upgradable_read();
-        if lock.send(buffer).is_err() {
-            // Try to crate an unbounded socket. Expect this to work.
-            let socket = UnixDatagram::unbound()?;
+        match lock.send(buffer) {
+            Ok(_) => (),
+            Err(e) if e.kind() == ErrorKind::TimedOut => (), // discard
+            Err(_) => {
+                // Try to crate an unbounded socket. Expect this to work.
+                let socket = UnixDatagram::unbound()?;
+                socket
+                    .set_write_timeout(Some(WRITE_TIMEOUT))
+                    .expect("Failed to set write timeout");
 
-            // Upgrade the read lock and replace the socket if the sent attempt is successful.
-            let mut lock = RwLockUpgradableReadGuard::upgrade(lock);
-            socket.connect(LOGDW)?;
-            socket.send(buffer)?;
-            // Assign the new socket to the lock. In the worst case one or more threads
-            // are opening sockets to logd which are immediately closed.
-            *lock = socket;
+                // Upgrade the read lock and replace the socket if the sent attempt is successful.
+                let mut lock = RwLockUpgradableReadGuard::upgrade(lock);
+                socket.connect(LOGDW)?;
+                socket.send(buffer).ok();
+                // Assign the new socket to the lock. In the worst case one or more threads
+                // are opening sockets to logd which are immediately closed.
+                *lock = socket;
+            }
         }
         Ok(())
     }
@@ -63,9 +80,7 @@ pub(crate) fn log(tag: &str, buffer_id: Buffer, priority: Priority, message: &st
 
     buffer.put_u8(buffer_id.into());
     buffer.put_u16_le(thread::id() as u16);
-    let timestamp = timestamp
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("Failed to aquire time");
+    let timestamp = timestamp.duration_since(time::UNIX_EPOCH).expect("Failed to aquire time");
     buffer.put_u32_le(timestamp.as_secs() as u32);
     buffer.put_u32_le(timestamp.subsec_nanos());
     buffer.put_u8(priority as u8);
@@ -83,7 +98,7 @@ pub(crate) fn log(tag: &str, buffer_id: Buffer, priority: Priority, message: &st
 /// Send a log event to logd
 pub(crate) fn write_event(log_buffer: Buffer, event: &Event) {
     let mut buffer = bytes::BytesMut::with_capacity(LOGGER_ENTRY_MAX_LEN);
-    let timestamp = event.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap();
+    let timestamp = event.timestamp.duration_since(time::UNIX_EPOCH).unwrap();
 
     buffer.put_u8(log_buffer.into());
     buffer.put_u16_le(thread::id() as u16);
@@ -106,12 +121,12 @@ fn smoke() {
         std::thread::spawn(move || loop {
             std::fs::remove_file(&socket).ok();
             let _socket = std::os::unix::net::UnixDatagram::bind(&socket).expect("Failed to bind");
-            std::thread::sleep(std::time::Duration::from_millis(1));
+            std::thread::sleep(time::Duration::from_millis(1));
         });
     }
 
-    let start = std::time::Instant::now();
-    while start.elapsed() < std::time::Duration::from_secs(5) {
+    let start = time::Instant::now();
+    while start.elapsed() < time::Duration::from_secs(5) {
         log("test", Buffer::Main, Priority::Info, "test");
     }
 }
