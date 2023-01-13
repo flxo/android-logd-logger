@@ -2,7 +2,7 @@ use env_logger::filter::Filter;
 use log::{LevelFilter, Log, Metadata};
 use std::io;
 
-use crate::{thread, Buffer, Priority, TagMode};
+use crate::{Buffer, Priority, TagMode};
 
 pub(crate) struct Logger {
     filter: Filter,
@@ -78,7 +78,7 @@ impl Log for Logger {
                 "{} {} {} {} {}: {}",
                 timestamp,
                 std::process::id(),
-                thread::id(),
+                crate::thread::id(),
                 priority,
                 tag,
                 message
