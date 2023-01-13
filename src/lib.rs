@@ -217,7 +217,7 @@ pub struct Builder {
     buffer: Option<Buffer>,
 }
 
-impl<'a> Builder {
+impl Builder {
     /// Initializes the log builder with defaults.
     ///
     /// # Examples
