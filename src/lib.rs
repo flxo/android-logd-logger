@@ -437,6 +437,9 @@ struct Logger {
     prepend_module: bool,
     #[allow(unused)]
     buffer_id: Buffer,
+
+    #[cfg(not(target_os = "android"))]
+    timestamp_format: Vec<time::format_description::FormatItem<'static>>,
 }
 
 impl Logger {
@@ -446,6 +449,11 @@ impl Logger {
             tag,
             prepend_module,
             buffer_id,
+            #[cfg(not(target_os = "android"))]
+            timestamp_format: time::format_description::parse(
+                "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]",
+            )
+            .unwrap(),
         })
     }
 }
@@ -488,10 +496,10 @@ impl Log for Logger {
         #[cfg(not(target_os = "android"))]
         {
             let now = ::time::OffsetDateTime::now_utc();
+            let timestamp = now.format(&self.timestamp_format).unwrap();
             println!(
-                "{}.{} {} {} {} {}: {}",
-                now.format("%Y-%m-%d %T"),
-                &now.format("%N")[..3],
+                "{} {} {} {} {}: {}",
+                timestamp,
                 std::process::id(),
                 thread::id(),
                 priority,
