@@ -81,14 +81,15 @@
 #![deny(missing_docs)]
 
 use bytes::{BufMut, Bytes, BytesMut};
-use env_logger::filter::{Builder as FilterBuilder, Filter};
-use log::{LevelFilter, Log, Metadata, SetLoggerError};
+use env_logger::filter::Builder as FilterBuilder;
+use log::{LevelFilter, SetLoggerError};
 use std::{fmt, io, iter::FromIterator, time::SystemTime};
 use thiserror::Error;
 
 #[allow(dead_code)]
 #[cfg(not(target_os = "windows"))]
 mod logd;
+mod logger;
 mod thread;
 
 /// Max log entry len
@@ -203,6 +204,17 @@ impl Default for TagMode {
     fn default() -> Self {
         TagMode::TargetStrip
     }
+}
+
+/// Returns a default [`Builder`] for configuration and initialization of logging.
+///
+/// With the help of the [`Builder`] the logging is configured.
+/// The tag, filter and buffer can be set.
+/// Additionally it is possible to set whether the modul path appears in a log message.
+///
+/// After a call to [`init`](Builder::init) the global logger is initialized with the configuration.
+pub fn builder() -> Builder {
+    Builder::default()
 }
 
 /// Builder for initializing logger
@@ -398,15 +410,10 @@ impl Builder {
     /// library has already initialized a global logger.
     pub fn try_init(&mut self) -> Result<(), SetLoggerError> {
         let logger = self.build();
-
-        let max_level = logger.filter.filter();
-        let r = log::set_boxed_logger(Box::new(logger));
-
-        if r.is_ok() {
+        let max_level = logger.level_filter();
+        log::set_boxed_logger(Box::new(logger)).map(|_| {
             log::set_max_level(max_level);
-        }
-
-        r
+        })
     }
 
     /// Initializes the global logger with the built logger.
@@ -423,111 +430,13 @@ impl Builder {
             .expect("Builder::init should not be called after logger initialized");
     }
 
-    fn build(&mut self) -> Logger {
+    fn build(&mut self) -> logger::Logger {
         let buffer = self.buffer.unwrap_or(Buffer::Main);
         let filter = self.filter.build();
+        let tag = self.tag.clone();
         let prepend_module = self.prepend_module;
-        Logger::new(buffer, filter, self.tag.clone(), prepend_module).expect("Failed to build logger")
+        logger::Logger::new(buffer, filter, tag, prepend_module).expect("failed to build logger")
     }
-}
-
-struct Logger {
-    filter: Filter,
-    tag: TagMode,
-    prepend_module: bool,
-    #[allow(unused)]
-    buffer_id: Buffer,
-
-    #[cfg(not(target_os = "android"))]
-    timestamp_format: Vec<time::format_description::FormatItem<'static>>,
-}
-
-impl Logger {
-    pub fn new(buffer_id: Buffer, filter: Filter, tag: TagMode, prepend_module: bool) -> Result<Logger, io::Error> {
-        Ok(Logger {
-            filter,
-            tag,
-            prepend_module,
-            buffer_id,
-            #[cfg(not(target_os = "android"))]
-            timestamp_format: time::format_description::parse(
-                "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]",
-            )
-            .unwrap(),
-        })
-    }
-}
-
-impl Log for Logger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        self.filter.enabled(metadata)
-    }
-
-    fn log(&self, record: &log::Record) {
-        if !self.filter.matches(record) {
-            return;
-        }
-
-        let args = record.args().to_string();
-        let message = if let Some(module_path) = record.module_path() {
-            if self.prepend_module {
-                [module_path, &args].join(": ")
-            } else {
-                args
-            }
-        } else {
-            args
-        };
-
-        let priority: Priority = record.metadata().level().into();
-        let tag = match &self.tag {
-            TagMode::Target => record.target(),
-            TagMode::TargetStrip => record
-                .target()
-                .split_once("::")
-                .map(|(tag, _)| tag)
-                .unwrap_or_else(|| record.target()),
-            TagMode::Custom(tag) => tag.as_str(),
-        };
-
-        #[cfg(target_os = "android")]
-        logd::log(tag, self.buffer_id, priority, &message);
-
-        #[cfg(not(target_os = "android"))]
-        {
-            let now = ::time::OffsetDateTime::now_utc();
-            let timestamp = now.format(&self.timestamp_format).unwrap();
-            println!(
-                "{} {} {} {} {}: {}",
-                timestamp,
-                std::process::id(),
-                thread::id(),
-                priority,
-                tag,
-                message
-            );
-        }
-    }
-
-    #[cfg(not(target_os = "android"))]
-    fn flush(&self) {
-        use std::io::Write;
-        io::stdout().flush().ok();
-    }
-
-    #[cfg(target_os = "android")]
-    fn flush(&self) {}
-}
-
-/// Returns a default [`Builder`] for configuration and initialization of logging.
-///
-/// With the help of the [`Builder`] the logging is configured.
-/// The tag, filter and buffer can be set.
-/// Additionally it is possible to set whether the modul path appears in a log message.
-///
-/// After a call to [`init`](Builder::init) the global logger is initialized with the configuration.
-pub fn builder() -> Builder {
-    Builder::default()
 }
 
 /// Event tag
