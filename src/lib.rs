@@ -90,7 +90,11 @@ mod events;
 #[cfg(not(target_os = "windows"))]
 mod logd;
 mod logger;
+mod pmsg;
 mod thread;
+
+// TODO: Remove public use here
+pub use pmsg::tmp_log;
 
 pub use events::*;
 

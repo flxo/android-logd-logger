@@ -53,7 +53,7 @@ impl LogdSocket {
             Ok(_) => (),
             Err(e) if e.kind() == ErrorKind::WouldBlock => (), // discard
             Err(_) => {
-                // Try to crate an unbounded socket. Expect this to work.
+                // Try to create an unbounded socket. Expect this to work.
                 let socket = UnixDatagram::unbound()?;
 
                 // Upgrade the read lock and replace the socket if the sent attempt is successful.
