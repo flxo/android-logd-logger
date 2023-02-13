@@ -10,6 +10,7 @@ pub(crate) struct NewlineScaledChunkIterator<'a> {
 
 impl<'a> NewlineScaledChunkIterator<'a> {
     /// Create a new iterator instance.
+    #[allow(dead_code)]
     pub fn new(data: &'a str, max_byte_length: usize) -> Self {
         Self { data, max_byte_length }
     }

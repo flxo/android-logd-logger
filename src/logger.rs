@@ -80,7 +80,7 @@ impl Log for Logger {
         {
             crate::logd::log(tag, self.buffer_id, priority, &message);
             if self.persistent_logging {
-                crate::pmsg::log(tag, self.buffer_id, priority, &message);
+                crate::pmsg::android::log(tag, self.buffer_id, priority, &message);
             }
         }
 
@@ -109,7 +109,7 @@ impl Log for Logger {
     #[cfg(target_os = "android")]
     fn flush(&self) {
         if self.persistent_logging {
-            crate::pmsg::flush().ok();
+            crate::pmsg::android::flush().ok();
         }
     }
 }
