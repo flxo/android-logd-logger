@@ -90,6 +90,7 @@ mod events;
 #[cfg(not(target_os = "windows"))]
 mod logd;
 mod logger;
+mod logging_iterator;
 mod pmsg;
 mod thread;
 
