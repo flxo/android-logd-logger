@@ -94,9 +94,6 @@ mod logging_iterator;
 mod pmsg;
 mod thread;
 
-// TODO: Remove public use here
-pub use pmsg::tmp_log;
-
 pub use events::*;
 
 /// Max log entry len
@@ -228,12 +225,24 @@ pub fn builder() -> Builder {
 ///
 /// The builder is used to initialize the logging framework for later use.
 /// It provides
-#[derive(Default)]
 pub struct Builder {
     filter: FilterBuilder,
     tag: TagMode,
     prepend_module: bool,
+    persistent_logging: bool,
     buffer: Option<Buffer>,
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self {
+            filter: FilterBuilder::default(),
+            tag: TagMode::default(),
+            prepend_module: false,
+            persistent_logging: true,
+            buffer: None,
+        }
+    }
 }
 
 impl Builder {
@@ -406,6 +415,16 @@ impl Builder {
         self
     }
 
+    /// Disable logging additionally to the persistent message device.
+    ///
+    /// On Android, we log messages to both `logd` and `pmsg`. The latter stores
+    /// the messages to the RAM area which survives a reboot. This can be
+    /// disabled with this function.
+    pub fn disable_persistent_logging(&mut self) -> &mut Self {
+        self.persistent_logging = false;
+        self
+    }
+
     /// Initializes the global logger with the built logd logger.
     ///
     /// This should be called early in the execution of a Rust program. Any log
@@ -442,6 +461,7 @@ impl Builder {
         let filter = self.filter.build();
         let tag = self.tag.clone();
         let prepend_module = self.prepend_module;
-        logger::Logger::new(buffer, filter, tag, prepend_module).expect("failed to build logger")
+        let persistent_logging = self.persistent_logging;
+        logger::Logger::new(buffer, filter, tag, prepend_module, persistent_logging).expect("failed to build logger")
     }
 }
