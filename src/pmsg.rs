@@ -22,44 +22,9 @@ const ANDROID_LOG_PMSG_MAX_SEQUENCE: usize = 256000;
 const DUMMY_UID: u16 = 0;
 
 lazy_static::lazy_static! {
-    static ref PMSG_DEV: PmsgDev = PmsgDev::connect(PMSG0);
-}
-
-/// Persistent message character device abstraction. Can only be written to
-/// and not read from.
-struct PmsgDev {
-    file: parking_lot::RwLock<File>,
-}
-
-impl PmsgDev {
-    /// Construct a new PmsgDev.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if the underlying character device cannot be opened
-    /// for writing.
-    pub fn connect(path: &str) -> Self {
-        let pmsg_dev = OpenOptions::new().write(true).open(path).expect("failed to open pmsg device");
-
-        Self {
-            file: parking_lot::RwLock::new(pmsg_dev),
-        }
-    }
-
-    /// Write a buffer to the pmsg device.
-    ///
-    /// Structure and length limits for meaningful input has to be handled by
-    /// the calling side.
-    pub fn write_all(&self, buffer: &[u8]) -> io::Result<()> {
-        let mut pmsg = self.file.write();
-        pmsg.write_all(buffer)
-    }
-
-    /// Flush the backing file handle.
-    pub fn flush(&self) -> io::Result<()> {
-        let mut pmsg = self.file.write();
-        pmsg.flush()
-    }
+    static ref PMSG_DEV: parking_lot::RwLock<File> = parking_lot::RwLock::new(
+        OpenOptions::new().write(true).open(PMSG0).expect("failed to open pmsg device")
+    );
 }
 
 /// Send a log message to pmsg0
@@ -90,7 +55,8 @@ pub(crate) fn log(record: &Record) {
 
 /// Flush the pmsg writer.
 pub(crate) fn flush() -> io::Result<()> {
-    PMSG_DEV.flush()
+    let mut pmsg = PMSG_DEV.write();
+    pmsg.flush()
 }
 
 fn log_pmsg_packet(
@@ -118,8 +84,11 @@ fn log_pmsg_packet(
     write_log_header(&mut buffer, buffer_id, thread_id, timestamp_secs, sequence_nr);
     write_payload(&mut buffer, priority, tag, msg_part);
 
-    if let Err(e) = PMSG_DEV.write_all(&buffer) {
-        eprintln!("Failed to log message part to pmsg: \"{}: {}\": {}", tag, msg_part, e);
+    {
+        let mut pmsg = PMSG_DEV.write();
+        if let Err(e) = pmsg.write_all(&buffer) {
+            eprintln!("Failed to log message part to pmsg: \"{}: {}\": {}", tag, msg_part, e);
+        }
     }
 }
 
