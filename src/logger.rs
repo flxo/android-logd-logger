@@ -9,7 +9,7 @@ pub(crate) struct Logger {
     tag: TagMode,
     prepend_module: bool,
     #[allow(unused)]
-    persistent_logging: bool,
+    pstore: bool,
     #[allow(unused)]
     buffer_id: Buffer,
 
@@ -18,18 +18,12 @@ pub(crate) struct Logger {
 }
 
 impl Logger {
-    pub fn new(
-        buffer_id: Buffer,
-        filter: Filter,
-        tag: TagMode,
-        prepend_module: bool,
-        persistent_logging: bool,
-    ) -> Result<Logger, io::Error> {
+    pub fn new(buffer_id: Buffer, filter: Filter, tag: TagMode, prepend_module: bool, pstore: bool) -> Result<Logger, io::Error> {
         Ok(Logger {
             filter,
             tag,
             prepend_module,
-            persistent_logging,
+            pstore,
             buffer_id,
             #[cfg(not(target_os = "android"))]
             timestamp_format: time::format_description::parse(
@@ -79,8 +73,8 @@ impl Log for Logger {
         #[cfg(target_os = "android")]
         {
             crate::logd::log(tag, self.buffer_id, priority, &message);
-            if self.persistent_logging {
-                crate::pmsg::android::log(tag, self.buffer_id, priority, &message);
+            if self.pstore {
+                crate::pmsg::log(tag, self.buffer_id, priority, &message);
             }
         }
 
@@ -108,8 +102,8 @@ impl Log for Logger {
 
     #[cfg(target_os = "android")]
     fn flush(&self) {
-        if self.persistent_logging {
-            crate::pmsg::android::flush().ok();
+        if self.pstore {
+            crate::pmsg::flush().ok();
         }
     }
 }

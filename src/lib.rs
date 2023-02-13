@@ -91,6 +91,7 @@ mod events;
 mod logd;
 mod logger;
 mod logging_iterator;
+#[cfg(target_os = "android")]
 mod pmsg;
 mod thread;
 
@@ -223,7 +224,7 @@ pub struct Builder {
     filter: FilterBuilder,
     tag: TagMode,
     prepend_module: bool,
-    persistent_logging: bool,
+    pstore: bool,
     buffer: Option<Buffer>,
 }
 
@@ -233,7 +234,7 @@ impl Default for Builder {
             filter: FilterBuilder::default(),
             tag: TagMode::default(),
             prepend_module: false,
-            persistent_logging: true,
+            pstore: true,
             buffer: None,
         }
     }
@@ -409,13 +410,13 @@ impl Builder {
         self
     }
 
-    /// Disable logging additionally to the persistent message device.
+    /// Enables or disables logging to the pstore filesystem.
     ///
-    /// On Android, we log messages to both `logd` and `pmsg`. The latter stores
-    /// the messages to the RAM area which survives a reboot. This can be
-    /// disabled with this function.
-    pub fn disable_persistent_logging(&mut self) -> &mut Self {
-        self.persistent_logging = false;
+    /// Enable or disable logging to the pstore filesystem that survives
+    /// reboots. By default, logging to the pstore is enabled.
+    #[cfg(target_os = "android")]
+    pub fn pstore(&mut self, log_to_pstore: bool) -> &mut Self {
+        self.pstore = log_to_pstore;
         self
     }
 
@@ -455,7 +456,7 @@ impl Builder {
         let filter = self.filter.build();
         let tag = self.tag.clone();
         let prepend_module = self.prepend_module;
-        let persistent_logging = self.persistent_logging;
-        logger::Logger::new(buffer, filter, tag, prepend_module, persistent_logging).expect("failed to build logger")
+        let pstore = self.pstore;
+        logger::Logger::new(buffer, filter, tag, prepend_module, pstore).expect("failed to build logger")
     }
 }
