@@ -1,9 +1,8 @@
-use crate::{logging_iterator::NewlineScaledChunkIterator, thread, Buffer, Priority};
+use crate::{logging_iterator::NewlineScaledChunkIterator, Buffer, Priority, Record};
 use bytes::{BufMut, BytesMut};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Write},
-    time::SystemTime,
 };
 
 /// Persistent message charater device
@@ -17,6 +16,10 @@ const ANDROID_LOG_ENTRY_MAX_PAYLOAD: usize = 4068;
 const ANDROID_LOG_PMSG_SEQUENCE_INCREMENT: usize = 1000;
 // Maximum sequence number in Android logging system
 const ANDROID_LOG_PMSG_MAX_SEQUENCE: usize = 256000;
+
+/// Fixed UID to use. This does not show up in the log output so we save the
+/// system call to determine it.
+const DUMMY_UID: u16 = 0;
 
 lazy_static::lazy_static! {
     static ref PMSG_DEV: PmsgDev = PmsgDev::connect(PMSG0);
@@ -60,34 +63,24 @@ impl PmsgDev {
 }
 
 /// Send a log message to pmsg0
-pub(crate) fn log(tag: &str, buffer_id: Buffer, priority: Priority, message: &str) {
-    // TODO: The timestamps of logd and pmsg won't match if we create them separately
-    let timestamp_as_duration = SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("failed to aquire time");
-    let timestamp_secs = timestamp_as_duration.as_secs() as u32;
+pub(crate) fn log(record: &Record) {
+    let timestamp_secs = record.timestamp.as_secs() as u32;
 
-    // TODO: Fetch real uid
-    let uid = 0;
-    let pid = std::process::id() as u16;
-    let thread_id = thread::id() as u16;
-
-    for (idx, msg_part) in NewlineScaledChunkIterator::new(message, ANDROID_LOG_ENTRY_MAX_PAYLOAD).enumerate() {
+    for (idx, msg_part) in NewlineScaledChunkIterator::new(record.message, ANDROID_LOG_ENTRY_MAX_PAYLOAD).enumerate() {
         let sequence_nr = idx * ANDROID_LOG_PMSG_SEQUENCE_INCREMENT;
         if sequence_nr >= ANDROID_LOG_PMSG_MAX_SEQUENCE {
             return;
         }
 
         log_pmsg_packet(
-            tag,
-            buffer_id,
-            priority,
-            msg_part,
             timestamp_secs,
+            record.pid,
+            record.thread_id,
+            record.buffer_id,
+            record.tag,
+            record.priority,
+            msg_part,
             sequence_nr as u32,
-            uid,
-            pid,
-            thread_id,
         );
     }
 }
@@ -98,15 +91,14 @@ pub(crate) fn flush() -> io::Result<()> {
 }
 
 fn log_pmsg_packet(
-    tag: &str,
-    buffer_id: Buffer,
-    priority: Priority,
-    msg_part: &str,
     timestamp_secs: u32,
-    sequence_nr: u32,
-    uid: u16,
     pid: u16,
     thread_id: u16,
+    buffer_id: Buffer,
+    tag: &str,
+    priority: Priority,
+    msg_part: &str,
+    sequence_nr: u32,
 ) {
     const PMSG_HEADER_LEN: u16 = 7;
     const LOG_HEADER_LEN: u16 = 11;
@@ -119,7 +111,7 @@ fn log_pmsg_packet(
     let packet_len = PMSG_HEADER_LEN + LOG_HEADER_LEN + payload_len;
     let mut buffer = bytes::BytesMut::with_capacity(packet_len as usize);
 
-    write_pmsg_header(&mut buffer, packet_len, uid, pid);
+    write_pmsg_header(&mut buffer, packet_len, DUMMY_UID, pid);
     write_log_header(&mut buffer, buffer_id, thread_id, timestamp_secs, sequence_nr);
     write_payload(&mut buffer, priority, tag, msg_part);
 
