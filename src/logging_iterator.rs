@@ -3,6 +3,9 @@
 /// This iterator will yield string slices below the maximum byte length
 /// specified. If there are newline characters in a chunk, it will split after
 /// the last of them instead of at the maximum length.
+///
+/// This is following the C implementation of the pmsg writer in Android:
+/// https://cs.android.com/android/platform/superproject/+/master:system/logging/liblog/pmsg_writer.cpp;l=165
 pub(crate) struct NewlineScaledChunkIterator<'a> {
     data: &'a str,
     max_byte_length: usize,
