@@ -66,6 +66,9 @@ impl PmsgDev {
 pub(crate) fn log(record: &Record) {
     let timestamp_secs = record.timestamp.as_secs() as u32;
 
+    // Iterate over chunks below the maximum payload byte length, scaled to
+    // the last newline character. This follows the C implementation:
+    // https://cs.android.com/android/platform/superproject/+/master:system/logging/liblog/pmsg_writer.cpp;l=165
     for (idx, msg_part) in NewlineScaledChunkIterator::new(record.message, ANDROID_LOG_ENTRY_MAX_PAYLOAD).enumerate() {
         let sequence_nr = idx * ANDROID_LOG_PMSG_SEQUENCE_INCREMENT;
         if sequence_nr >= ANDROID_LOG_PMSG_MAX_SEQUENCE {
