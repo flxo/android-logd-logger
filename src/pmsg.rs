@@ -70,13 +70,28 @@ pub mod android {
             .expect("failed to aquire time");
         let timestamp_secs = timestamp_as_duration.as_secs() as u32;
 
+        // TODO: Fetch real uid
+        let uid = 0;
+        let pid = std::process::id() as u16;
+        let thread_id = thread::id() as u16;
+
         for (idx, msg_part) in NewlineScaledChunkIterator::new(message, ANDROID_LOG_ENTRY_MAX_PAYLOAD).enumerate() {
             let sequence_nr = idx * ANDROID_LOG_PMSG_SEQUENCE_INCREMENT;
             if sequence_nr >= ANDROID_LOG_PMSG_MAX_SEQUENCE {
                 return;
             }
 
-            log_pmsg_packet(tag, buffer_id, priority, msg_part, timestamp_secs, sequence_nr as u32);
+            log_pmsg_packet(
+                tag,
+                buffer_id,
+                priority,
+                msg_part,
+                timestamp_secs,
+                sequence_nr as u32,
+                uid,
+                pid,
+                thread_id,
+            );
         }
     }
 
@@ -85,7 +100,17 @@ pub mod android {
         PMSG_DEV.flush()
     }
 
-    fn log_pmsg_packet(tag: &str, buffer_id: Buffer, priority: Priority, msg_part: &str, timestamp_secs: u32, sequence_nr: u32) {
+    fn log_pmsg_packet(
+        tag: &str,
+        buffer_id: Buffer,
+        priority: Priority,
+        msg_part: &str,
+        timestamp_secs: u32,
+        sequence_nr: u32,
+        uid: u16,
+        pid: u16,
+        thread_id: u16,
+    ) {
         const PMSG_HEADER_LEN: u16 = 7;
         const LOG_HEADER_LEN: u16 = 11;
         // The payload is made up by:
@@ -97,10 +122,6 @@ pub mod android {
         let mut buffer = bytes::BytesMut::new();
 
         let packet_len = PMSG_HEADER_LEN + LOG_HEADER_LEN + payload_len;
-        // TODO: Fetch real uid
-        let uid = 0;
-        let pid = std::process::id() as u16;
-        let thread_id = thread::id() as u16;
 
         write_pmsg_header(&mut buffer, packet_len, uid, pid);
         write_log_header(&mut buffer, buffer_id, thread_id, timestamp_secs, sequence_nr);
