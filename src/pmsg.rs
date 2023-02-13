@@ -52,6 +52,12 @@ impl PmsgDev {
         let mut pmsg = self.file.write();
         pmsg.write_all(buffer)
     }
+
+    /// Flush the backing file handle.
+    pub fn flush(&self) -> io::Result<()> {
+        let mut pmsg = self.file.write();
+        pmsg.flush()
+    }
 }
 
 /// Send a log message to pmsg0
@@ -62,7 +68,6 @@ pub(crate) fn log(tag: &str, buffer_id: Buffer, priority: Priority, message: &st
         .expect("failed to aquire time");
     let timestamp_secs = timestamp_as_duration.as_secs() as u32;
 
-    // TODO: Use real maximum byte length below
     for (idx, msg_part) in NewlineScaledChunkIterator::new(message, ANDROID_LOG_ENTRY_MAX_PAYLOAD).enumerate() {
         let sequence_nr = idx * ANDROID_LOG_PMSG_SEQUENCE_INCREMENT;
         if sequence_nr >= ANDROID_LOG_PMSG_MAX_SEQUENCE {
@@ -71,6 +76,11 @@ pub(crate) fn log(tag: &str, buffer_id: Buffer, priority: Priority, message: &st
 
         log_pmsg_packet(tag, buffer_id, priority, msg_part, timestamp_secs, sequence_nr as u32);
     }
+}
+
+/// Flush the pmsg writer.
+pub(crate) fn flush() -> io::Result<()> {
+    PMSG_DEV.flush()
 }
 
 fn log_pmsg_packet(tag: &str, buffer_id: Buffer, priority: Priority, msg_part: &str, timestamp_secs: u32, sequence_nr: u32) {
@@ -85,7 +95,7 @@ fn log_pmsg_packet(tag: &str, buffer_id: Buffer, priority: Priority, msg_part: &
     let mut buffer = bytes::BytesMut::new();
 
     let packet_len = PMSG_HEADER_LEN + LOG_HEADER_LEN + payload_len;
-    // TODO: Fetch pid
+    // TODO: Fetch real pid
     let uid = 0;
     let pid = std::process::id() as u16;
     let thread_id = thread::id() as u16;
@@ -126,18 +136,4 @@ fn write_payload(buffer: &mut BytesMut, priority: Priority, tag: &str, msg_part:
     // Message part with zero terminator
     buffer.put(msg_part.as_bytes());
     buffer.put_u8(0);
-}
-
-// TODO: Remove
-/// Temporary function to try out in a binary without logger integration
-pub fn tmp_log(tag: &str, buffer_id: Buffer, priority: u8, message: &str) {
-    let priority = match priority {
-        2 => Priority::Verbose,
-        3 => Priority::Debug,
-        4 => Priority::Info,
-        5 => Priority::Warn,
-        6 => Priority::Error,
-        _ => Priority::_Unknown,
-    };
-    log(tag, buffer_id, priority as Priority, message)
 }
