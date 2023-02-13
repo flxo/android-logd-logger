@@ -110,7 +110,6 @@ pub enum Error {
     EventSize,
 }
 
-//#[cfg(target_os = "android")]
 /// Log priority as defined by logd
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
@@ -192,22 +191,17 @@ impl From<Buffer> for u8 {
 }
 
 /// Tag mode
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 enum TagMode {
     /// Use the records target metadata as tag
     Target,
     /// Use root module as tag. The target field contains the module path
     /// if not overwritten. Use the root module as tag. e.g a target of
     /// `crate::module::submodule` will be `crate`.
+    #[default]
     TargetStrip,
     /// Custom fixed tag string
     Custom(String),
-}
-
-impl Default for TagMode {
-    fn default() -> Self {
-        TagMode::TargetStrip
-    }
 }
 
 /// Returns a default [`Builder`] for configuration and initialization of logging.
