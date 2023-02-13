@@ -2,13 +2,12 @@ use std::{
     io::{self, ErrorKind},
     os::unix::net::UnixDatagram,
     path::Path,
-    time::SystemTime,
 };
 
 use bytes::BufMut;
 use parking_lot::RwLockUpgradableReadGuard;
 
-use crate::{thread, Buffer, Event, Priority, LOGGER_ENTRY_MAX_LEN};
+use crate::{thread, Buffer, Event, Record, LOGGER_ENTRY_MAX_LEN};
 
 /// Logd write socket path
 const LOGDW: &str = "/dev/socket/logdw";
@@ -73,31 +72,26 @@ impl LogdSocket {
 }
 
 /// Send a log message to logd
-pub(crate) fn log(tag: &str, buffer_id: Buffer, priority: Priority, message: &str) {
-    let timestamp = SystemTime::now();
-
+pub(crate) fn log(record: &Record) {
     // Tag and message len with null terminator.
-    let tag_len = tag.bytes().len() + 1;
-    let message_len = message.bytes().len() + 1;
+    let tag_len = record.tag.bytes().len() + 1;
+    let message_len = record.message.bytes().len() + 1;
 
     let mut buffer = bytes::BytesMut::with_capacity(12 + tag_len + message_len);
 
-    buffer.put_u8(buffer_id.into());
+    buffer.put_u8(record.buffer_id.into());
     buffer.put_u16_le(thread::id() as u16);
-    let timestamp = timestamp
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("Failed to aquire time");
-    buffer.put_u32_le(timestamp.as_secs() as u32);
-    buffer.put_u32_le(timestamp.subsec_nanos());
-    buffer.put_u8(priority as u8);
-    buffer.put(tag.as_bytes());
+    buffer.put_u32_le(record.timestamp.as_secs() as u32);
+    buffer.put_u32_le(record.timestamp.subsec_nanos());
+    buffer.put_u8(record.priority as u8);
+    buffer.put(record.tag.as_bytes());
     buffer.put_u8(0);
 
-    buffer.put(message.as_bytes());
+    buffer.put(record.message.as_bytes());
     buffer.put_u8(0);
 
     if let Err(e) = SOCKET.send(&buffer) {
-        eprintln!("Failed to send log message \"{}: {}\": {}", tag, message, e);
+        eprintln!("Failed to send log message \"{}: {}\": {}", record.tag, record.message, e);
     }
 }
 
@@ -119,6 +113,9 @@ pub(crate) fn write_event(log_buffer: Buffer, event: &Event) {
 
 #[test]
 fn smoke() {
+    use crate::Priority;
+    use std::time::SystemTime;
+
     let tempdir = tempfile::tempdir().unwrap();
     let socket = tempdir.path().join("socket");
 
@@ -133,6 +130,17 @@ fn smoke() {
 
     let start = std::time::Instant::now();
     while start.elapsed() < std::time::Duration::from_secs(5) {
-        log("test", Buffer::Main, Priority::Info, "test");
+        let log_record = Record {
+            timestamp: SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("failed to acquire time"),
+            pid: std::process::id() as u16,
+            thread_id: thread::id() as u16,
+            buffer_id: Buffer::Main,
+            tag: "test",
+            priority: Priority::Info,
+            message: "test",
+        };
+        log(&log_record);
     }
 }

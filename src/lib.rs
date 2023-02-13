@@ -82,7 +82,7 @@
 
 use env_logger::filter::Builder as FilterBuilder;
 use log::{LevelFilter, SetLoggerError};
-use std::{fmt, io};
+use std::{fmt, io, time::Duration};
 use thiserror::Error;
 
 mod events;
@@ -203,6 +203,23 @@ enum TagMode {
     TargetStrip,
     /// Custom fixed tag string
     Custom(String),
+}
+
+/// Logging record structure
+///
+/// We build this structure in the [`Logger`] per `log()` call and pass
+/// consistent timestamps and other information to both the `logd` and the
+/// `pmsg` device without paying the price for system calls twice.
+struct Record<'tag, 'msg> {
+    timestamp: Duration,
+    #[allow(unused)]
+    pid: u16,
+    #[allow(unused)]
+    thread_id: u16,
+    buffer_id: Buffer,
+    tag: &'tag str,
+    priority: Priority,
+    message: &'msg str,
 }
 
 /// Returns a default [`Builder`] for configuration and initialization of logging.
@@ -412,8 +429,8 @@ impl Builder {
 
     /// Enables or disables logging to the pstore filesystem.
     ///
-    /// Enable or disable logging to the pstore filesystem that survives
-    /// reboots. By default, logging to the pstore is enabled.
+    /// Messages logged to the pstore filesystem survive a reboot but not a
+    /// power cycle. By default, logging to the pstore is enabled.
     #[cfg(target_os = "android")]
     pub fn pstore(&mut self, log_to_pstore: bool) -> &mut Self {
         self.pstore = log_to_pstore;

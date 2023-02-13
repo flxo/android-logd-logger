@@ -1,8 +1,11 @@
+#[cfg(target_os = "android")]
+use crate::{thread, Record};
+use crate::{Buffer, Priority, TagMode};
 use env_logger::filter::Filter;
 use log::{LevelFilter, Log, Metadata};
 use std::io;
-
-use crate::{Buffer, Priority, TagMode};
+#[cfg(target_os = "android")]
+use std::time::SystemTime;
 
 pub(crate) struct Logger {
     filter: Filter,
@@ -72,9 +75,20 @@ impl Log for Logger {
 
         #[cfg(target_os = "android")]
         {
-            crate::logd::log(tag, self.buffer_id, priority, &message);
+            let log_record = Record {
+                timestamp: SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("failed to acquire time"),
+                pid: std::process::id() as u16,
+                thread_id: thread::id() as u16,
+                buffer_id: self.buffer_id.into(),
+                tag,
+                priority,
+                message: &message,
+            };
+            crate::logd::log(&log_record);
             if self.pstore {
-                crate::pmsg::log(tag, self.buffer_id, priority, &message);
+                crate::pmsg::log(&log_record);
             }
         }
 
