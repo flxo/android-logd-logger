@@ -75,10 +75,12 @@ impl Log for Logger {
 
         #[cfg(target_os = "android")]
         {
+            let timestamp = SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("failed to acquire time");
             let log_record = Record {
-                timestamp: SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .expect("failed to acquire time"),
+                timestamp_secs: timestamp.as_secs() as u32,
+                timestamp_subsec_nanos: timestamp.subsec_nanos() as u32,
                 pid: std::process::id() as u16,
                 thread_id: thread::id() as u16,
                 buffer_id: self.buffer_id.into(),

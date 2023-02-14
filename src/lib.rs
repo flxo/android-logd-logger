@@ -82,7 +82,7 @@
 
 use env_logger::filter::Builder as FilterBuilder;
 use log::{LevelFilter, SetLoggerError};
-use std::{fmt, io, time::Duration};
+use std::{fmt, io};
 use thiserror::Error;
 
 mod events;
@@ -211,7 +211,8 @@ enum TagMode {
 /// consistent timestamps and other information to both the `logd` and the
 /// `pmsg` device without paying the price for system calls twice.
 struct Record<'tag, 'msg> {
-    timestamp: Duration,
+    timestamp_secs: u32,
+    timestamp_subsec_nanos: u32,
     #[allow(unused)]
     pid: u16,
     #[allow(unused)]
