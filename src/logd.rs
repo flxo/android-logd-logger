@@ -81,8 +81,8 @@ pub(crate) fn log(record: &Record) {
 
     buffer.put_u8(record.buffer_id.into());
     buffer.put_u16_le(thread::id() as u16);
-    buffer.put_u32_le(record.timestamp.as_secs() as u32);
-    buffer.put_u32_le(record.timestamp.subsec_nanos());
+    buffer.put_u32_le(record.timestamp_secs);
+    buffer.put_u32_le(record.timestamp_subsec_nanos);
     buffer.put_u8(record.priority as u8);
     buffer.put(record.tag.as_bytes());
     buffer.put_u8(0);
@@ -130,10 +130,12 @@ fn smoke() {
 
     let start = std::time::Instant::now();
     while start.elapsed() < std::time::Duration::from_secs(5) {
+        let timestamp = SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("failed to acquire time");
         let log_record = Record {
-            timestamp: SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("failed to acquire time"),
+            timestamp_secs: timestamp.as_secs() as u32,
+            timestamp_subsec_nanos: timestamp.subsec_nanos() as u32,
             pid: std::process::id() as u16,
             thread_id: thread::id() as u16,
             buffer_id: Buffer::Main,
