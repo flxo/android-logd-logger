@@ -90,6 +90,7 @@ mod events;
 #[cfg(not(target_os = "windows"))]
 mod logd;
 mod logger;
+#[cfg(target_os = "android")]
 mod logging_iterator;
 #[cfg(target_os = "android")]
 mod pmsg;

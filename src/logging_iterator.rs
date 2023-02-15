@@ -55,15 +55,11 @@ impl<'a> Iterator for NewlineScaledChunkIterator<'a> {
 /// Find the character boundary before an index in a string slice.
 fn find_char_boundary_before_idx(data: &str, mut idx: usize) -> usize {
     loop {
-        match data.is_char_boundary(idx) {
-            true => return idx,
-            false => {
-                idx -= 1;
-                if idx == 0 {
-                    return idx;
-                }
-            }
+        if data.is_char_boundary(idx) || idx == 0 {
+            return idx;
         }
+
+        idx -= 1;
     }
 }
 
