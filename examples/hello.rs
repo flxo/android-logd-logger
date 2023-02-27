@@ -1,9 +1,9 @@
 use log::*;
 
 fn main() {
-    android_logd_logger::builder()
+    let config = android_logd_logger::builder()
         .parse_filters("debug")
-        .tag_target_strip()
+        .tag("test tag 1")
         .prepend_module(true)
         .init();
 
@@ -12,8 +12,18 @@ fn main() {
     warn!("hellohello");
     error!("HELLOHELLO");
 
+    config.write().unwrap().set_level_filter(LevelFilter::Error);
+    config.write().unwrap().tag_target_strip();
+    trace!("hello");
+    info!("helloHello");
+
+    config.write().unwrap().prepend_module(false);
+    warn!("prepend module OFF hellohello");
+
+    error!("ERROR prepend module ON hellohello");
     // Use a custom target string that is used as tag
     info!(target: "custom", "hello custom target");
+    info!(target: "taaag", "hello custom target");
 
     // Invoke a log from a submodule
     hello_again::hello();

@@ -82,6 +82,7 @@
 
 use env_logger::filter::Builder as FilterBuilder;
 use log::{LevelFilter, SetLoggerError};
+use std::sync::{Arc, RwLock};
 use std::{fmt, io};
 use thiserror::Error;
 
@@ -223,6 +224,8 @@ struct Record<'tag, 'msg> {
     priority: Priority,
     message: &'msg str,
 }
+
+mod log_configuration;
 
 /// Returns a default [`Builder`] for configuration and initialization of logging.
 ///
@@ -448,12 +451,13 @@ impl Builder {
     ///
     /// This function will fail if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn try_init(&mut self) -> Result<(), SetLoggerError> {
-        let logger = self.build();
+    pub fn try_init(&mut self) -> Result<Arc<RwLock<log_configuration::LogConfiguration>>, SetLoggerError> {
+        let (logger, configuration) = self.build();
         let max_level = logger.level_filter();
         log::set_boxed_logger(Box::new(logger)).map(|_| {
             log::set_max_level(max_level);
-        })
+        });
+        Ok(configuration)
     }
 
     /// Initializes the global logger with the built logger.
@@ -465,17 +469,20 @@ impl Builder {
     ///
     /// This function will panic if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn init(&mut self) {
+    pub fn init(&mut self) -> Arc<RwLock<log_configuration::LogConfiguration>> {
         self.try_init()
-            .expect("Builder::init should not be called after logger initialized");
+            .expect("Builder::init should not be called after logger initialized")
     }
 
-    fn build(&mut self) -> logger::Logger {
+    fn build(&mut self) -> (logger::LoggerImpl, Arc<RwLock<log_configuration::LogConfiguration>>) {
         let buffer = self.buffer.unwrap_or(Buffer::Main);
         let filter = self.filter.build();
         let tag = self.tag.clone();
         let prepend_module = self.prepend_module;
         let pstore = self.pstore;
-        logger::Logger::new(buffer, filter, tag, prepend_module, pstore).expect("failed to build logger")
+        let config = log_configuration::LogConfiguration::new(filter, tag, prepend_module, pstore, Some(buffer));
+        let configuration = Arc::new(RwLock::new(config));
+        let logger = logger::LoggerImpl::new(Arc::clone(&configuration)).expect("failed to build logger");
+        (logger, configuration)
     }
 }
