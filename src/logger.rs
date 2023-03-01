@@ -8,8 +8,37 @@ use std::sync::{Arc, RwLock};
 #[cfg(target_os = "android")]
 use std::time::SystemTime;
 
+#[derive(Clone)]
+pub struct LoggerConfigHandler {
+    pub(crate) configuration_handler: Arc<RwLock<LogConfiguration>>,
+}
+
+impl LoggerConfigHandler {
+    pub(crate) fn new(configuration: Arc<RwLock<LogConfiguration>>) -> Self {
+        Self {
+            configuration_handler: configuration,
+        }
+    }
+
+    pub(crate) fn new_from_raw(configuration: LogConfiguration) -> Self {
+        Self {
+            configuration_handler: { Arc::new(RwLock::new(configuration)) },
+        }
+    }
+    pub fn setter(&self) -> std::sync::RwLockWriteGuard<LogConfiguration> {
+        self.configuration_handler.write().unwrap()
+    }
+
+    pub fn getter(&self) -> std::sync::RwLockReadGuard<LogConfiguration> {
+        self.configuration_handler.read().unwrap()
+    }
+
+    pub(crate) fn get_config(&self) -> Arc<RwLock<LogConfiguration>> {
+        Arc::clone(&self.configuration_handler)
+    }
+}
 pub(crate) struct LoggerImpl {
-    configuration: Arc<RwLock<LogConfiguration>>,
+    configuration_handle: LoggerConfigHandler,
 
     #[cfg(not(target_os = "android"))]
     timestamp_format: Vec<time::format_description::FormatItem<'static>>,
@@ -18,7 +47,7 @@ pub(crate) struct LoggerImpl {
 impl LoggerImpl {
     pub fn new(configuration: Arc<RwLock<LogConfiguration>>) -> Result<LoggerImpl, io::Error> {
         Ok(LoggerImpl {
-            configuration,
+            configuration_handle: LoggerConfigHandler::new(configuration),
             #[cfg(not(target_os = "android"))]
             timestamp_format: time::format_description::parse(
                 "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]",
@@ -27,50 +56,55 @@ impl LoggerImpl {
         })
     }
 
+    #[allow(unused)]
     pub fn level_filter(&self) -> LevelFilter {
-        self.configuration.read().unwrap().filter.filter()
+        self.configuration_handle.getter().filter.filter()
     }
 
-    pub fn get_logger_handler(&self) {}
-
+    #[allow(unused)]
     pub fn set_filter(&mut self, new_filter: Filter) {
-        self.configuration.write().unwrap().set_filter(new_filter);
+        self.configuration_handle.setter().set_filter(new_filter);
     }
 
+    #[allow(unused)]
     pub fn set_tag(self, tag: &str) {
-        self.configuration.write().unwrap().tag(tag);
+        self.configuration_handle.setter().tag(tag);
     }
 
+    #[allow(unused)]
     pub fn set_tag_target(&mut self) {
-        self.configuration.write().unwrap().tag_target();
+        self.configuration_handle.setter().tag_target();
     }
 
+    #[allow(unused)]
     pub fn set_tag_target_strip(&mut self) {
-        self.configuration.write().unwrap().tag_target_strip();
+        self.configuration_handle.setter().tag_target_strip();
     }
 
+    #[allow(unused)]
     pub fn set_prepend_module(&mut self, new_prepend_module: bool) {
-        self.configuration.write().unwrap().prepend_module(new_prepend_module);
+        self.configuration_handle.setter().prepend_module(new_prepend_module);
     }
 
+    #[allow(unused)]
     pub fn set_buffer(&mut self, new_buffer: Buffer) {
-        self.configuration.write().unwrap().buffer(new_buffer);
+        self.configuration_handle.setter().buffer(new_buffer);
     }
 }
 
 impl Log for LoggerImpl {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        self.configuration.read().unwrap().filter.enabled(metadata)
+        self.configuration_handle.getter().filter.enabled(metadata)
     }
 
     fn log(&self, record: &log::Record) {
-        if !self.configuration.read().unwrap().filter.matches(record) {
+        if !self.configuration_handle.getter().filter.matches(record) {
             return;
         }
 
         let args = record.args().to_string();
         let message = if let Some(module_path) = record.module_path() {
-            if self.configuration.read().unwrap().prepend_module {
+            if self.configuration_handle.getter().prepend_module {
                 [module_path, &args].join(": ")
             } else {
                 args
@@ -80,7 +114,7 @@ impl Log for LoggerImpl {
         };
 
         let priority: Priority = record.metadata().level().into();
-        let binding = self.configuration.read().unwrap();
+        let binding = self.configuration_handle.getter();
         let tag = match &binding.tag {
             TagMode::Target => record.target(),
             TagMode::TargetStrip => record
@@ -107,7 +141,7 @@ impl Log for LoggerImpl {
                 message: &message,
             };
             crate::logd::log(&log_record);
-            if self.configuration.read().unwrap().pstore {
+            if self.configuration_handle.getter().pstore {
                 crate::pmsg::log(&log_record);
             }
         }
@@ -136,7 +170,7 @@ impl Log for LoggerImpl {
 
     #[cfg(target_os = "android")]
     fn flush(&self) {
-        if self.configuration.read().unwrap().pstore {
+        if self.configuration_handle.getter().pstore {
             crate::pmsg::flush().ok();
         }
     }

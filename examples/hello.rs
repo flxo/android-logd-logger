@@ -12,12 +12,12 @@ fn main() {
     warn!("hellohello");
     error!("HELLOHELLO");
 
-    config.write().unwrap().set_level_filter(LevelFilter::Error);
-    config.write().unwrap().tag_target_strip();
+    config.setter().set_level_filter(LevelFilter::Error);
+    config.setter().tag_target_strip();
     trace!("hello");
     info!("helloHello");
 
-    config.write().unwrap().prepend_module(false);
+    config.setter().prepend_module(false);
     warn!("prepend module OFF hellohello");
 
     error!("ERROR prepend module ON hellohello");

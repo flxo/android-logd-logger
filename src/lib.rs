@@ -81,8 +81,7 @@
 #![deny(missing_docs)]
 
 use env_logger::filter::Builder as FilterBuilder;
-use log::{LevelFilter, SetLoggerError};
-use std::sync::{Arc, RwLock};
+use log::{set_boxed_logger, LevelFilter, SetLoggerError};
 use std::{fmt, io};
 use thiserror::Error;
 
@@ -293,7 +292,7 @@ impl Builder {
     ///
     /// let mut builder = Builder::new();
     /// builder.buffer(Buffer::Crash)
-    ///     .init();
+    ///        .init();
     /// ```
     pub fn buffer(&mut self, buffer: Buffer) -> &mut Self {
         self.buffer = Some(buffer);
@@ -451,12 +450,13 @@ impl Builder {
     ///
     /// This function will fail if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn try_init(&mut self) -> Result<Arc<RwLock<log_configuration::LogConfiguration>>, SetLoggerError> {
+    pub fn try_init(&mut self) -> Result<logger::LoggerConfigHandler, SetLoggerError> {
         let (logger, configuration) = self.build();
         let max_level = logger.level_filter();
-        log::set_boxed_logger(Box::new(logger)).map(|_| {
+        set_boxed_logger(Box::new(logger)).map(|_| {
             log::set_max_level(max_level);
-        });
+        })?;
+
         Ok(configuration)
     }
 
@@ -469,20 +469,22 @@ impl Builder {
     ///
     /// This function will panic if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn init(&mut self) -> Arc<RwLock<log_configuration::LogConfiguration>> {
+    pub fn init(&mut self) -> logger::LoggerConfigHandler {
         self.try_init()
             .expect("Builder::init should not be called after logger initialized")
     }
 
-    fn build(&mut self) -> (logger::LoggerImpl, Arc<RwLock<log_configuration::LogConfiguration>>) {
+    fn build(&mut self) -> (logger::LoggerImpl, logger::LoggerConfigHandler) {
         let buffer = self.buffer.unwrap_or(Buffer::Main);
         let filter = self.filter.build();
         let tag = self.tag.clone();
         let prepend_module = self.prepend_module;
         let pstore = self.pstore;
+
         let config = log_configuration::LogConfiguration::new(filter, tag, prepend_module, pstore, Some(buffer));
-        let configuration = Arc::new(RwLock::new(config));
-        let logger = logger::LoggerImpl::new(Arc::clone(&configuration)).expect("failed to build logger");
+        let configuration = logger::LoggerConfigHandler::new_from_raw(config);
+
+        let logger = logger::LoggerImpl::new(configuration.get_config()).expect("failed to build logger");
         (logger, configuration)
     }
 }
