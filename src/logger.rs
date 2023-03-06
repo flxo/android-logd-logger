@@ -8,27 +8,63 @@ use std::sync::{Arc, RwLock};
 #[cfg(target_os = "android")]
 use std::time::SystemTime;
 
+///Logger configuration handler stores access to logger configuration parameters
+///
+///
 #[derive(Clone)]
 pub struct LoggerConfigHandler {
     pub(crate) configuration_handler: Arc<RwLock<LogConfiguration>>,
 }
 
 impl LoggerConfigHandler {
+    /// Create new configuration handler from Arc<RwLock<LogConfiguration>>
+    ///
     pub(crate) fn new(configuration: Arc<RwLock<LogConfiguration>>) -> Self {
         Self {
             configuration_handler: configuration,
         }
     }
 
+    /// Create new configuration handler from LogConfiguration object
+    ///     
     pub(crate) fn new_from_raw(configuration: LogConfiguration) -> Self {
         Self {
             configuration_handler: { Arc::new(RwLock::new(configuration)) },
         }
     }
+
+    /// Provide access to configuration parameters for changing
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use log::LevelFilter;
+    /// # use android_logd_logger::Builder;
+    ///
+    /// let config = android_logd_logger::builder()
+    /// .parse_filters("debug")
+    /// .init();
+    ///
+    /// config.setter().set_level_filter(LevelFilter::Error);
+    /// ```
     pub fn setter(&self) -> std::sync::RwLockWriteGuard<LogConfiguration> {
         self.configuration_handler.write().unwrap()
     }
 
+    /// Provide access to configuration parameters for reading
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use log::LevelFilter;
+    /// # use android_logd_logger::Builder;
+    ///
+    /// let config = android_logd_logger::builder()
+    /// .parse_filters("debug")
+    /// .init();
+    ///
+    /// let prepend_module = config.getter().get_prepend_module();
+    /// ```
     pub fn getter(&self) -> std::sync::RwLockReadGuard<LogConfiguration> {
         self.configuration_handler.read().unwrap()
     }
@@ -58,7 +94,7 @@ impl LoggerImpl {
 
     #[allow(unused)]
     pub fn level_filter(&self) -> LevelFilter {
-        self.configuration_handle.getter().filter.filter()
+        self.configuration_handle.getter().get_level_filter()
     }
 
     #[allow(unused)]
@@ -68,27 +104,27 @@ impl LoggerImpl {
 
     #[allow(unused)]
     pub fn set_tag(self, tag: &str) {
-        self.configuration_handle.setter().tag(tag);
+        self.configuration_handle.setter().set_custom_tag(tag);
     }
 
     #[allow(unused)]
     pub fn set_tag_target(&mut self) {
-        self.configuration_handle.setter().tag_target();
+        self.configuration_handle.setter().set_tag_to_target();
     }
 
     #[allow(unused)]
     pub fn set_tag_target_strip(&mut self) {
-        self.configuration_handle.setter().tag_target_strip();
+        self.configuration_handle.setter().set_tag_to_target_strip();
     }
 
     #[allow(unused)]
     pub fn set_prepend_module(&mut self, new_prepend_module: bool) {
-        self.configuration_handle.setter().prepend_module(new_prepend_module);
+        self.configuration_handle.setter().set_prepend_module(new_prepend_module);
     }
 
     #[allow(unused)]
     pub fn set_buffer(&mut self, new_buffer: Buffer) {
-        self.configuration_handle.setter().buffer(new_buffer);
+        self.configuration_handle.setter().set_buffer(new_buffer);
     }
 }
 
@@ -104,7 +140,7 @@ impl Log for LoggerImpl {
 
         let args = record.args().to_string();
         let message = if let Some(module_path) = record.module_path() {
-            if self.configuration_handle.getter().prepend_module {
+            if self.configuration_handle.getter().get_prepend_module() {
                 [module_path, &args].join(": ")
             } else {
                 args

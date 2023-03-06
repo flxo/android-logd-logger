@@ -15,25 +15,7 @@ pub struct LogConfiguration {
 impl LogConfiguration {
     /// Initializes the Log Configuration
     ///
-    /// # Examples
     ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// ```
-    ///
-    /// [`filter`]: #method.filter
     pub(crate) fn new(filter: Filter, tag: TagMode, prepend_module: bool, pstore: bool, buffer_id: Option<Buffer>) -> Self {
         //let tag = TagMode::default();
         Self {
@@ -45,220 +27,78 @@ impl LogConfiguration {
         }
     }
 
-    /// Set Log configuration buffer
+    /// Get Log configuration buffer field
     ///
-    /// # Examples
+    pub fn get_buffer(&self) -> Option<Buffer> {
+        self.buffer_id
+    }
+
+    ///Get Log configuration prepend module value
+    pub fn get_prepend_module(&self) -> bool {
+        self.prepend_module
+    }
+
+    /// Get Log configuration pstore value
+    pub fn get_pstore(&self) -> bool {
+        self.pstore
+    }
+
+    /// Get Log configuration filter level
     ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
+    pub fn get_level_filter(&self) -> log::LevelFilter {
+        self.filter.filter().to_level().unwrap().to_level_filter()
+    }
+
+    /// Set Log configuration buffer field
     ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.buffer(Buffer::Main);
-    ///
-    pub fn buffer(&mut self, buffer: Buffer) -> &mut Self {
+    pub fn set_buffer(&mut self, buffer: Buffer) -> &mut Self {
         self.buffer_id = Some(buffer);
         self
     }
 
-    /// Set Log configuration custom tag
+    /// Set Log configuration tag to custom
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.tag("custom tag");
-    ///
-    pub fn tag(&mut self, tag: &str) -> &mut Self {
+    pub fn set_custom_tag(&mut self, tag: &str) -> &mut Self {
         self.tag = TagMode::Custom(tag.to_string());
         self
     }
 
-    /// Set Log configuration tag by target
+    /// Set Log configuration tag to target
     ///
-    /// # Examples
-    ///
-    /// Create a new builder and configure filters and style:
-    ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.tag("custom tag");
-    ///
-    pub fn tag_target(&mut self) -> &mut Self {
+    pub fn set_tag_to_target(&mut self) -> &mut Self {
         self.tag = TagMode::Target;
         self
     }
 
-    /// Set Log configuration tag by target
+    /// Set Log configuration tag to target strip
     ///
-    /// # Examples
-    ///
-    /// Create a new builder and configure filters and style:
-    ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.tag("custom tag");
-    ///
-    pub fn tag_target_strip(&mut self) -> &mut Self {
+    pub fn set_tag_to_target_strip(&mut self) -> &mut Self {
         self.tag = TagMode::TargetStrip;
         self
     }
 
     /// Set Log configuration prepend module
     ///
-    /// # Examples
-    ///
-    /// Create a new builder and configure filters and style:
-    ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.prepend_module(true);
-    ///
-    pub fn prepend_module(&mut self, prepend_module: bool) -> &mut Self {
+    pub fn set_prepend_module(&mut self, prepend_module: bool) -> &mut Self {
         self.prepend_module = prepend_module;
         self
     }
 
     /// Set Log configuration pstore
     ///
-    /// # Examples
-    ///
-    /// Create a new builder and configure filters and style:
-    ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.set_pstore(true);
-    ///
     pub fn set_pstore(&mut self, new_pstore: bool) -> &mut Self {
         self.pstore = new_pstore;
         self
     }
 
-    /// Set Log configuration pstore
-    ///
-    /// # Examples
-    ///
-    /// Create a new builder and configure filters and style:
-    ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.set_filter(filter);
+    /// Set Log configuration filter
     ///
     pub fn set_filter(&mut self, filter: Filter) -> &mut Self {
         self.filter = filter;
         self
     }
 
-    /// Set Log configuration pstore
-    ///
-    /// # Examples
-    ///
-    /// Create a new builder and configure filters and style:
-    ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.set_level_filter(log::LevelFilter::Error);
+    /// Set Log configuration filter level
     ///
     pub fn set_level_filter(&mut self, level_filter: log::LevelFilter) -> &mut Self {
         let mut filter_builder = env_logger::filter::Builder::default();
@@ -267,28 +107,7 @@ impl LogConfiguration {
         self
     }
 
-    /// Set Log configuration pstore
-    ///
-    /// # Examples
-    ///
-    /// Create a new builder and configure filters and style:
-    ///
-    /// ```
-    /// # use env_logger::filter::Filter;
-    /// # use android_logd_logger::{LogConfiguration, Builder};
-    /// let mut builder = Builder::new();
-    ///
-    /// builder.buffer(Buffer::Crash).init();
-    /// builder.tag_target().init();
-    /// builder.filter_module("path::to::module", LevelFilter::Info).init();
-    ///
-    /// let buffer = builder.buffer.unwrap_or(Buffer::Main);
-    /// let filter = builder.filter.build();
-    /// let tag = builder.tag.clone();
-    ///
-    /// let mut log_config = LogConfiguration::new(filter, tag, false, false, Some(buffer));
-    ///
-    /// log_config.set_mudule_and_level_filter("module", log::LevelFilter::Error);
+    /// Set Log configuration module and level filter
     ///
     pub fn set_mudule_and_level_filter(&mut self, new_module: &str, new_level_filter: log::LevelFilter) -> &mut Self {
         let mut filter_builder = env_logger::filter::Builder::default();

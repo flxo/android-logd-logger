@@ -86,6 +86,7 @@ use std::{fmt, io};
 use thiserror::Error;
 
 mod events;
+mod log_configuration;
 #[allow(dead_code)]
 #[cfg(not(target_os = "windows"))]
 mod logd;
@@ -223,8 +224,6 @@ struct Record<'tag, 'msg> {
     priority: Priority,
     message: &'msg str,
 }
-
-mod log_configuration;
 
 /// Returns a default [`Builder`] for configuration and initialization of logging.
 ///
