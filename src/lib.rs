@@ -291,7 +291,7 @@ impl Builder {
     ///
     /// let mut builder = Builder::new();
     /// builder.buffer(Buffer::Crash)
-    ///        .init();
+    ///     .init();
     /// ```
     pub fn buffer(&mut self, buffer: Buffer) -> &mut Self {
         self.buffer = Some(buffer);
@@ -449,14 +449,14 @@ impl Builder {
     ///
     /// This function will fail if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn try_init(&mut self) -> Result<logger::LoggerConfigHandler, SetLoggerError> {
-        let (logger, configuration) = self.build();
-        let max_level = logger.level_filter();
-        set_boxed_logger(Box::new(logger)).map(|_| {
+    pub fn try_init(&mut self) -> Result<logger::Logger, SetLoggerError> {
+        let (logger_impl, logger) = self.build();
+        let max_level = logger.get_level_filter();
+        set_boxed_logger(Box::new(logger_impl)).map(|_| {
             log::set_max_level(max_level);
         })?;
 
-        Ok(configuration)
+        Ok(logger)
     }
 
     /// Initializes the global logger with the built logger.
@@ -468,12 +468,12 @@ impl Builder {
     ///
     /// This function will panic if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn init(&mut self) -> logger::LoggerConfigHandler {
+    pub fn init(&mut self) -> logger::Logger {
         self.try_init()
             .expect("Builder::init should not be called after logger initialized")
     }
 
-    fn build(&mut self) -> (logger::LoggerImpl, logger::LoggerConfigHandler) {
+    fn build(&mut self) -> (logger::LoggerImpl, logger::Logger) {
         let buffer = self.buffer.unwrap_or(Buffer::Main);
         let filter = self.filter.build();
         let tag = self.tag.clone();
@@ -481,7 +481,7 @@ impl Builder {
         let pstore = self.pstore;
 
         let config = log_configuration::LogConfiguration::new(filter, tag, prepend_module, pstore, Some(buffer));
-        let configuration = logger::LoggerConfigHandler::new_from_raw(config);
+        let configuration = logger::Logger::new_from_raw(config);
 
         let logger = logger::LoggerImpl::new(configuration.get_config()).expect("failed to build logger");
         (logger, configuration)
