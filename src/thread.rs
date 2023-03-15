@@ -1,7 +1,10 @@
 #[cfg(unix)]
 #[inline]
 pub fn id() -> usize {
-    unsafe { libc::pthread_self() as usize }
+    #[allow(clippy::unnecessary_cast)]
+    unsafe {
+        libc::pthread_self() as usize
+    }
 }
 
 #[cfg(windows)]
