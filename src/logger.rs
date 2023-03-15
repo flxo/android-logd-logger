@@ -1,14 +1,24 @@
-use crate::{configuration::Configuration, Buffer, Priority, TagMode};
 #[cfg(target_os = "android")]
 use crate::{thread, Record};
+use crate::{Buffer, Priority, TagMode};
 use env_logger::filter::Filter;
 use log::{LevelFilter, Log, Metadata};
-use parking_lot::{RwLock, RwLockReadGuard};
+use parking_lot::RwLock;
 #[cfg(target_os = "android")]
 use std::time::SystemTime;
 use std::{io, sync::Arc};
 
-///Logger configuration handler stores access to logger configuration parameters
+/// Logger configuration.
+pub(crate) struct Configuration {
+    pub(crate) filter: Filter,
+    pub(crate) tag: TagMode,
+    pub(crate) prepend_module: bool,
+    #[allow(unused)]
+    pub(crate) pstore: bool,
+    pub(crate) buffer_id: Option<Buffer>,
+}
+
+/// Logger configuration handler stores access to logger configuration parameters.
 #[derive(Clone)]
 pub struct Logger {
     pub(crate) configuration: Arc<RwLock<Configuration>>,
@@ -23,33 +33,13 @@ impl Logger {
     /// # use log::LevelFilter;
     /// # use android_logd_logger::{Builder, Buffer};
     ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
+    /// let logger = android_logd_logger::builder().init();
     ///
-    /// logger.set_buffer(Buffer::Crash);
+    /// logger.buffer(Buffer::Crash);
     /// ```
-    pub fn set_buffer(&self, buffer: Buffer) -> &Self {
-        self.configuration.write().set_buffer(buffer);
+    pub fn buffer(&self, buffer: Buffer) -> &Self {
+        self.configuration.write().buffer_id = Some(buffer);
         self
-    }
-
-    /// gets tag parameter of logger configuration
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use log::LevelFilter;
-    /// # use android_logd_logger::Builder;
-    ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
-    ///
-    /// let binder = logger.getter();
-    /// ```
-    pub fn getter(&self) -> RwLockReadGuard<Configuration> {
-        self.configuration.read()
     }
 
     // Sets tag parameter of logger configuration to custom value
@@ -60,14 +50,12 @@ impl Logger {
     /// # use log::LevelFilter;
     /// # use android_logd_logger::Builder;
     ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
+    /// let logger = android_logd_logger::builder().init();
     ///
-    /// logger.set_custom_tag("foo");
+    /// logger.tag("foo");
     /// ```
-    pub fn set_custom_tag(&self, tag: &str) -> &Self {
-        self.configuration.write().set_custom_tag(tag);
+    pub fn tag(&self, tag: &str) -> &Self {
+        self.configuration.write().tag = TagMode::Custom(tag.into());
         self
     }
 
@@ -79,14 +67,12 @@ impl Logger {
     /// # use log::LevelFilter;
     /// # use android_logd_logger::Builder;
     ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
+    /// let logger = android_logd_logger::builder().init();
     ///
-    /// logger.set_tag_to_target();
+    /// logger.tag_target();
     /// ```
-    pub fn set_tag_to_target(&self) -> &Self {
-        self.configuration.write().set_tag_to_target();
+    pub fn tag_target(&self) -> &Self {
+        self.configuration.write().tag = TagMode::Target;
         self
     }
 
@@ -98,14 +84,12 @@ impl Logger {
     /// # use log::LevelFilter;
     /// # use android_logd_logger::Builder;
     ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
+    /// let logger = android_logd_logger::builder().init();
     ///
-    /// logger.set_tag_to_strip();
+    /// logger.tag_target_strip();
     /// ```
-    pub fn set_tag_to_strip(&self) -> &Self {
-        self.configuration.write().set_tag_to_target_strip();
+    pub fn tag_target_strip(&self) -> &Self {
+        self.configuration.write().tag = TagMode::TargetStrip;
         self
     }
 
@@ -117,100 +101,12 @@ impl Logger {
     /// # use log::LevelFilter;
     /// # use android_logd_logger::Builder;
     ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .prepend_module(false)
-    /// .init();
+    /// let logger = android_logd_logger::builder().init();
     ///
-    /// logger.set_prepend_module(true);
+    /// logger.prepend_module(true);
     /// ```
-    pub fn set_prepend_module(&self, prepend_module: bool) -> &Self {
-        self.configuration.write().set_prepend_module(prepend_module);
-        self
-    }
-
-    /// Gets prepend module parameter of logger configuration
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use log::LevelFilter;
-    /// # use android_logd_logger::Builder;
-    ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .prepend_module(false)
-    /// .init();
-    ///
-    /// let prepend_module = logger.get_prepend_module();
-    /// ```
-    pub fn get_prepend_module(&self) -> bool {
-        self.configuration.write().prepend_module
-    }
-
-    /// Sets filter parameter of logger configuration
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use log::LevelFilter;
-    /// # use android_logd_logger::Builder;
-    ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .pstore(false)
-    /// .init();
-    ///
-    /// logger.set_pstore(true);
-    /// ```
-    #[cfg(target_os = "android")]
-    pub fn set_pstore(&self, new_pstore: bool) -> &Self {
-        self.logger.write().set_pstore(new_pstore);
-        self
-    }
-
-    /// Gets level filter parameter of logger configuration
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use log::LevelFilter;
-    /// # use android_logd_logger::Builder;
-    ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
-    ///
-    /// let level_filter = logger.get_level_filter();
-    /// ```
-    pub fn get_level_filter(&self) -> LevelFilter {
-        self.configuration
-            .write()
-            .filter
-            .filter()
-            .to_level()
-            .unwrap()
-            .to_level_filter()
-    }
-    /// Sets filter parameter of logger configuration
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use log::LevelFilter;
-    /// # use android_logd_logger::Builder;
-    ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
-    ///
-    /// let mut filter_builder = env_logger::filter::Builder::default();
-    /// let filter = filter_builder.filter_level(LevelFilter::Info).build();
-    ///
-    /// logger.set_filter(filter);
-    /// ```
-    pub fn set_filter(&self, filter: Filter) -> &Self {
-        self.configuration.write().set_filter(filter);
+    pub fn prepend_module(&self, prepend_module: bool) -> &Self {
+        self.configuration.write().prepend_module = prepend_module;
         self
     }
 
@@ -218,22 +114,70 @@ impl Logger {
     ///
     /// # Examples
     ///
+    /// Only include messages for warning and above for logs in `path::to::module`:
+    ///
     /// ```
     /// # use log::LevelFilter;
     /// # use android_logd_logger::Builder;
     ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
+    /// let logger = android_logd_logger::builder().init();
     ///
-    /// logger.set_module_and_level_filter("path::to::module", LevelFilter::Info);
+    /// logger.filter_module("path::to::module", LevelFilter::Info);
     /// ```
-    pub fn set_module_and_level_filter(&self, module: &str, level: LevelFilter) -> &Self {
-        self.configuration.write().set_module_and_level_filter(module, level);
+    pub fn filter_module(&mut self, module: &str, level: LevelFilter) -> &mut Self {
+        self.configuration.write().filter = env_logger::filter::Builder::default().filter_module(module, level).build();
         self
     }
 
-    /// Adds a directive to the filter for all modules.
+    /// Adjust filter.
+    ///
+    /// # Examples
+    ///
+    /// Only include messages for warning and above for logs in `path::to::module`:
+    ///
+    /// ```
+    /// # use log::LevelFilter;
+    /// # use android_logd_logger::Builder;
+    ///
+    /// let logger = Builder::new().init();
+    /// logger.filter_level(LevelFilter::Info).init();
+    /// ```
+    pub fn filter_level(&mut self, level: LevelFilter) -> &mut Self {
+        self.configuration.write().filter = env_logger::filter::Builder::default().filter_level(level).build();
+        self
+    }
+
+    /// Adjust filter.
+    ///
+    /// The given module (if any) will log at most the specified level provided.
+    /// If no module is provided then the filter will apply to all log messages.
+    ///
+    /// # Examples
+    ///
+    /// Only include messages for warning and above for logs in `path::to::module`:
+    ///
+    /// ```
+    /// # use log::LevelFilter;
+    /// # use android_logd_logger::Builder;
+    ///
+    /// let logger = Builder::new().init();
+    /// logger.filter(Some("path::to::module"), LevelFilter::Info).init();
+    /// ```
+    pub fn filter(&mut self, module: Option<&str>, level: LevelFilter) -> &mut Self {
+        self.configuration.write().filter = env_logger::filter::Builder::default().filter(module, level).build();
+        self
+    }
+
+    /// Parses the directives string in the same form as the `RUST_LOG`
+    /// environment variable.
+    ///
+    /// See the module documentation for more details.
+    pub fn parse_filters(&mut self, filters: &str) -> &mut Self {
+        self.configuration.write().filter = env_logger::filter::Builder::default().parse(filters).build();
+        self
+    }
+
+    /// Sets filter parameter of logger configuration
     ///
     /// # Examples
     ///
@@ -241,19 +185,18 @@ impl Logger {
     /// # use log::LevelFilter;
     /// # use android_logd_logger::Builder;
     ///
-    /// let logger = android_logd_logger::builder()
-    /// .parse_filters("debug")
-    /// .init();
+    /// let logger = android_logd_logger::builder().init();
     ///
-    /// logger.set_level_filter(LevelFilter::Info);
+    /// logger.pstore(true);
     /// ```
-    pub fn set_level_filter(&self, level_filter: LevelFilter) -> &Self {
-        self.configuration.write().set_level_filter(level_filter);
+    #[cfg(target_os = "android")]
+    pub fn pstore(&self, pstore: bool) -> &Self {
+        self.logger.write().pstore = pstore;
         self
     }
 }
 pub(crate) struct LoggerImpl {
-    configuration_handle: Logger,
+    configuration: Arc<RwLock<Configuration>>,
 
     #[cfg(not(target_os = "android"))]
     timestamp_format: Vec<time::format_description::FormatItem<'static>>,
@@ -262,7 +205,7 @@ pub(crate) struct LoggerImpl {
 impl LoggerImpl {
     pub fn new(configuration: Arc<RwLock<Configuration>>) -> Result<LoggerImpl, io::Error> {
         Ok(LoggerImpl {
-            configuration_handle: Logger { configuration },
+            configuration,
             #[cfg(not(target_os = "android"))]
             timestamp_format: time::format_description::parse(
                 "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]",
@@ -270,51 +213,22 @@ impl LoggerImpl {
             .unwrap(),
         })
     }
-
-    #[allow(unused)]
-    pub fn set_filter(&mut self, new_filter: Filter) {
-        self.configuration_handle.set_filter(new_filter);
-    }
-
-    #[allow(unused)]
-    pub fn set_tag(self, tag: &str) {
-        self.configuration_handle.set_custom_tag(tag);
-    }
-
-    #[allow(unused)]
-    pub fn set_tag_target(&mut self) {
-        self.configuration_handle.set_tag_to_target();
-    }
-
-    #[allow(unused)]
-    pub fn set_tag_target_strip(&mut self) {
-        self.configuration_handle.set_tag_to_strip();
-    }
-
-    #[allow(unused)]
-    pub fn set_prepend_module(&mut self, new_prepend_module: bool) {
-        self.configuration_handle.set_prepend_module(new_prepend_module);
-    }
-
-    #[allow(unused)]
-    pub fn set_buffer(&mut self, new_buffer: Buffer) {
-        self.configuration_handle.set_buffer(new_buffer);
-    }
 }
 
 impl Log for LoggerImpl {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        self.configuration_handle.getter().filter.enabled(metadata)
+        self.configuration.read().filter.enabled(metadata)
     }
 
     fn log(&self, record: &log::Record) {
-        if !self.configuration_handle.getter().filter.matches(record) {
+        let configuration = self.configuration.read();
+        if !configuration.filter.matches(record) {
             return;
         }
 
         let args = record.args().to_string();
         let message = if let Some(module_path) = record.module_path() {
-            if self.configuration_handle.get_prepend_module() {
+            if configuration.prepend_module {
                 [module_path, &args].join(": ")
             } else {
                 args
@@ -324,8 +238,7 @@ impl Log for LoggerImpl {
         };
 
         let priority: Priority = record.metadata().level().into();
-        let binder = self.configuration_handle.getter();
-        let tag = match &binder.tag {
+        let tag = match &configuration.tag {
             TagMode::Target => record.target(),
             TagMode::TargetStrip => record
                 .target()

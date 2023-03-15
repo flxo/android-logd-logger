@@ -1,7 +1,7 @@
 use log::*;
 
 fn main() {
-    let config = android_logd_logger::builder()
+    let mut config = android_logd_logger::builder()
         .parse_filters("debug")
         .tag("test tag 1")
         .prepend_module(true)
@@ -12,12 +12,12 @@ fn main() {
     warn!("hellohello");
     error!("HELLOHELLO");
 
-    config.set_level_filter(LevelFilter::Error);
-    config.set_tag_to_strip();
+    config.filter_level(LevelFilter::Error);
+    config.tag_target_strip();
     trace!("hello");
     info!("helloHello");
 
-    config.set_prepend_module(false);
+    config.prepend_module(false);
     warn!("prepend module OFF hellohello");
 
     error!("ERROR prepend module ON hellohello");

@@ -80,14 +80,13 @@
 
 #![deny(missing_docs)]
 
-use configuration::Configuration;
 use env_logger::filter::Builder as FilterBuilder;
 use log::{set_boxed_logger, LevelFilter, SetLoggerError};
+use logger::Configuration;
 use parking_lot::RwLock;
 use std::{fmt, io, sync::Arc};
 use thiserror::Error;
 
-mod configuration;
 mod events;
 #[allow(dead_code)]
 #[cfg(not(target_os = "windows"))]
@@ -459,6 +458,7 @@ impl Builder {
             pstore: self.pstore,
             buffer_id: Some(self.buffer.unwrap_or(Buffer::Main)),
         };
+        let max_level = configuration.filter.filter();
         let configuration = Arc::new(RwLock::new(configuration));
 
         let logger = logger::Logger {
@@ -466,7 +466,6 @@ impl Builder {
         };
         let logger_impl = logger::LoggerImpl::new(configuration).expect("failed to build logger");
 
-        let max_level = logger.get_level_filter();
         set_boxed_logger(Box::new(logger_impl))
             .map(|_| {
                 log::set_max_level(max_level);
