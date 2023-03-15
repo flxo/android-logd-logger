@@ -3,12 +3,10 @@ use crate::{configuration::Configuration, Buffer, Priority, TagMode};
 use crate::{thread, Record};
 use env_logger::filter::Filter;
 use log::{LevelFilter, Log, Metadata};
+use parking_lot::{RwLock, RwLockReadGuard};
 #[cfg(target_os = "android")]
 use std::time::SystemTime;
-use std::{
-    io,
-    sync::{Arc, RwLock},
-};
+use std::{io, sync::Arc};
 
 ///Logger configuration handler stores access to logger configuration parameters
 #[derive(Clone)]
@@ -32,7 +30,7 @@ impl Logger {
     /// logger.set_buffer(Buffer::Crash);
     /// ```
     pub fn set_buffer(&self, buffer: Buffer) -> &Self {
-        self.configuration.write().unwrap().set_buffer(buffer);
+        self.configuration.write().set_buffer(buffer);
         self
     }
 
@@ -50,8 +48,8 @@ impl Logger {
     ///
     /// let binder = logger.getter();
     /// ```
-    pub fn getter(&self) -> std::sync::RwLockReadGuard<Configuration> {
-        self.configuration.read().unwrap()
+    pub fn getter(&self) -> RwLockReadGuard<Configuration> {
+        self.configuration.read()
     }
 
     // Sets tag parameter of logger configuration to custom value
@@ -69,7 +67,7 @@ impl Logger {
     /// logger.set_custom_tag("foo");
     /// ```
     pub fn set_custom_tag(&self, tag: &str) -> &Self {
-        self.configuration.write().unwrap().set_custom_tag(tag);
+        self.configuration.write().set_custom_tag(tag);
         self
     }
 
@@ -88,7 +86,7 @@ impl Logger {
     /// logger.set_tag_to_target();
     /// ```
     pub fn set_tag_to_target(&self) -> &Self {
-        self.configuration.write().unwrap().set_tag_to_target();
+        self.configuration.write().set_tag_to_target();
         self
     }
 
@@ -107,7 +105,7 @@ impl Logger {
     /// logger.set_tag_to_strip();
     /// ```
     pub fn set_tag_to_strip(&self) -> &Self {
-        self.configuration.write().unwrap().set_tag_to_target_strip();
+        self.configuration.write().set_tag_to_target_strip();
         self
     }
 
@@ -127,7 +125,7 @@ impl Logger {
     /// logger.set_prepend_module(true);
     /// ```
     pub fn set_prepend_module(&self, prepend_module: bool) -> &Self {
-        self.configuration.write().unwrap().set_prepend_module(prepend_module);
+        self.configuration.write().set_prepend_module(prepend_module);
         self
     }
 
@@ -147,7 +145,7 @@ impl Logger {
     /// let prepend_module = logger.get_prepend_module();
     /// ```
     pub fn get_prepend_module(&self) -> bool {
-        self.configuration.write().unwrap().prepend_module
+        self.configuration.write().prepend_module
     }
 
     /// Sets filter parameter of logger configuration
@@ -167,7 +165,7 @@ impl Logger {
     /// ```
     #[cfg(target_os = "android")]
     pub fn set_pstore(&self, new_pstore: bool) -> &Self {
-        self.logger.write().unwrap().set_pstore(new_pstore);
+        self.logger.write().set_pstore(new_pstore);
         self
     }
 
@@ -188,7 +186,6 @@ impl Logger {
     pub fn get_level_filter(&self) -> LevelFilter {
         self.configuration
             .write()
-            .unwrap()
             .filter
             .filter()
             .to_level()
@@ -213,7 +210,7 @@ impl Logger {
     /// logger.set_filter(filter);
     /// ```
     pub fn set_filter(&self, filter: Filter) -> &Self {
-        self.configuration.write().unwrap().set_filter(filter);
+        self.configuration.write().set_filter(filter);
         self
     }
 
@@ -232,7 +229,7 @@ impl Logger {
     /// logger.set_module_and_level_filter("path::to::module", LevelFilter::Info);
     /// ```
     pub fn set_module_and_level_filter(&self, module: &str, level: LevelFilter) -> &Self {
-        self.configuration.write().unwrap().set_module_and_level_filter(module, level);
+        self.configuration.write().set_module_and_level_filter(module, level);
         self
     }
 
@@ -251,7 +248,7 @@ impl Logger {
     /// logger.set_level_filter(LevelFilter::Info);
     /// ```
     pub fn set_level_filter(&self, level_filter: LevelFilter) -> &Self {
-        self.configuration.write().unwrap().set_level_filter(level_filter);
+        self.configuration.write().set_level_filter(level_filter);
         self
     }
 

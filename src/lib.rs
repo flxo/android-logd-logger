@@ -83,10 +83,8 @@
 use configuration::Configuration;
 use env_logger::filter::Builder as FilterBuilder;
 use log::{set_boxed_logger, LevelFilter, SetLoggerError};
-use std::{
-    fmt, io,
-    sync::{Arc, RwLock},
-};
+use parking_lot::RwLock;
+use std::{fmt, io, sync::Arc};
 use thiserror::Error;
 
 mod configuration;
