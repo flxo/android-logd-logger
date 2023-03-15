@@ -251,10 +251,6 @@ impl Logger {
         self.configuration.write().set_level_filter(level_filter);
         self
     }
-
-    pub(crate) fn get_config(&self) -> Arc<RwLock<Configuration>> {
-        Arc::clone(&self.configuration)
-    }
 }
 pub(crate) struct LoggerImpl {
     configuration_handle: Logger,

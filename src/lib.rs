@@ -452,13 +452,26 @@ impl Builder {
     /// This function will fail if it is called more than once, or if another
     /// library has already initialized a global logger.
     pub fn try_init(&mut self) -> Result<logger::Logger, SetLoggerError> {
-        let (logger_impl, logger) = self.build();
-        let max_level = logger.get_level_filter();
-        set_boxed_logger(Box::new(logger_impl)).map(|_| {
-            log::set_max_level(max_level);
-        })?;
+        let configuration = Configuration {
+            filter: self.filter.build(),
+            tag: self.tag.clone(),
+            prepend_module: self.prepend_module,
+            pstore: self.pstore,
+            buffer_id: Some(self.buffer.unwrap_or(Buffer::Main)),
+        };
+        let configuration = Arc::new(RwLock::new(configuration));
 
-        Ok(logger)
+        let logger = logger::Logger {
+            configuration: configuration.clone(),
+        };
+        let logger_impl = logger::LoggerImpl::new(configuration).expect("failed to build logger");
+
+        let max_level = logger.get_level_filter();
+        set_boxed_logger(Box::new(logger_impl))
+            .map(|_| {
+                log::set_max_level(max_level);
+            })
+            .map(|_| logger)
     }
 
     /// Initializes the global logger with the built logger.
@@ -473,26 +486,5 @@ impl Builder {
     pub fn init(&mut self) -> logger::Logger {
         self.try_init()
             .expect("Builder::init should not be called after logger initialized")
-    }
-
-    fn build(&mut self) -> (logger::LoggerImpl, logger::Logger) {
-        let buffer = self.buffer.unwrap_or(Buffer::Main);
-        let filter = self.filter.build();
-        let tag = self.tag.clone();
-        let prepend_module = self.prepend_module;
-        let pstore = self.pstore;
-
-        let configuration = Configuration {
-            filter,
-            tag,
-            prepend_module,
-            pstore,
-            buffer_id: Some(buffer),
-        };
-        let configuration = Arc::new(RwLock::new(configuration));
-        let configuration = logger::Logger { configuration };
-
-        let logger = logger::LoggerImpl::new(configuration.get_config()).expect("failed to build logger");
-        (logger, configuration)
     }
 }
