@@ -82,7 +82,7 @@
 
 use env_logger::filter::Builder as FilterBuilder;
 use log::{set_boxed_logger, LevelFilter, SetLoggerError};
-use logger::Configuration;
+use logger::{Configuration, Logger};
 use parking_lot::RwLock;
 use std::{fmt, io, sync::Arc};
 use thiserror::Error;
@@ -450,7 +450,7 @@ impl Builder {
     ///
     /// This function will fail if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn try_init(&mut self) -> Result<logger::Logger, SetLoggerError> {
+    pub fn try_init(&mut self) -> Result<Logger, SetLoggerError> {
         let configuration = Configuration {
             filter: self.filter.build(),
             tag: self.tag.clone(),
@@ -461,7 +461,7 @@ impl Builder {
         let max_level = configuration.filter.filter();
         let configuration = Arc::new(RwLock::new(configuration));
 
-        let logger = logger::Logger {
+        let logger = Logger {
             configuration: configuration.clone(),
         };
         let logger_impl = logger::LoggerImpl::new(configuration).expect("failed to build logger");
@@ -482,7 +482,7 @@ impl Builder {
     ///
     /// This function will panic if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn init(&mut self) -> logger::Logger {
+    pub fn init(&mut self) -> Logger {
         self.try_init()
             .expect("Builder::init should not be called after logger initialized")
     }

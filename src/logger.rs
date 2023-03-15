@@ -195,9 +195,10 @@ impl Logger {
         self
     }
 }
+
+/// Logger implementation.
 pub(crate) struct LoggerImpl {
     configuration: Arc<RwLock<Configuration>>,
-
     #[cfg(not(target_os = "android"))]
     timestamp_format: Vec<time::format_description::FormatItem<'static>>,
 }
@@ -222,6 +223,7 @@ impl Log for LoggerImpl {
 
     fn log(&self, record: &log::Record) {
         let configuration = self.configuration.read();
+
         if !configuration.filter.matches(record) {
             return;
         }
@@ -258,13 +260,13 @@ impl Log for LoggerImpl {
                 timestamp_subsec_nanos: timestamp.subsec_nanos() as u32,
                 pid: std::process::id() as u16,
                 thread_id: thread::id() as u16,
-                buffer_id: self.configuration_handle.getter().buffer_id,
+                buffer_id: configuration_handle.buffer_id,
                 tag,
                 priority,
                 message: &message,
             };
             crate::logd::log(&log_record);
-            if self.configuration_handle.getter().pstore {
+            if configuration.pstore {
                 crate::pmsg::log(&log_record);
             }
         }
