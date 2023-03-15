@@ -15,7 +15,7 @@ pub(crate) struct Configuration {
     pub(crate) prepend_module: bool,
     #[allow(unused)]
     pub(crate) pstore: bool,
-    pub(crate) buffer_id: Option<Buffer>,
+    pub(crate) buffer_id: Buffer,
 }
 
 /// Logger configuration handler stores access to logger configuration parameters.
@@ -38,7 +38,7 @@ impl Logger {
     /// logger.buffer(Buffer::Crash);
     /// ```
     pub fn buffer(&self, buffer: Buffer) -> &Self {
-        self.configuration.write().buffer_id = Some(buffer);
+        self.configuration.write().buffer_id = buffer;
         self
     }
 
@@ -191,7 +191,7 @@ impl Logger {
     /// ```
     #[cfg(target_os = "android")]
     pub fn pstore(&self, pstore: bool) -> &Self {
-        self.logger.write().pstore = pstore;
+        self.configuration.write().pstore = pstore;
         self
     }
 }
@@ -260,7 +260,7 @@ impl Log for LoggerImpl {
                 timestamp_subsec_nanos: timestamp.subsec_nanos() as u32,
                 pid: std::process::id() as u16,
                 thread_id: thread::id() as u16,
-                buffer_id: configuration_handle.buffer_id,
+                buffer_id: configuration.buffer_id,
                 tag,
                 priority,
                 message: &message,

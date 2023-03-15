@@ -456,7 +456,7 @@ impl Builder {
             tag: self.tag.clone(),
             prepend_module: self.prepend_module,
             pstore: self.pstore,
-            buffer_id: Some(self.buffer.unwrap_or(Buffer::Main)),
+            buffer_id: self.buffer.unwrap_or(Buffer::Main),
         };
         let max_level = configuration.filter.filter();
         let configuration = Arc::new(RwLock::new(configuration));
