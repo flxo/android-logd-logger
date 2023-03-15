@@ -142,7 +142,7 @@ impl Logger {
     /// let logger = Builder::new().init();
     /// logger.filter_level(LevelFilter::Info).init();
     /// ```
-    pub fn filter_level(&mut self, level: LevelFilter) -> &mut Self {
+    pub fn filter_level(&self, level: LevelFilter) -> &Self {
         self.configuration.write().filter = env_logger::filter::Builder::default().filter_level(level).build();
         self
     }
@@ -163,7 +163,7 @@ impl Logger {
     /// let logger = Builder::new().init();
     /// logger.filter(Some("path::to::module"), LevelFilter::Info).init();
     /// ```
-    pub fn filter(&mut self, module: Option<&str>, level: LevelFilter) -> &mut Self {
+    pub fn filter(&self, module: Option<&str>, level: LevelFilter) -> &Self {
         self.configuration.write().filter = env_logger::filter::Builder::default().filter(module, level).build();
         self
     }
