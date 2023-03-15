@@ -3,10 +3,12 @@ use crate::{log_configuration::LogConfiguration, Buffer, Priority, TagMode};
 use crate::{thread, Record};
 use env_logger::filter::Filter;
 use log::{LevelFilter, Log, Metadata};
-use std::io;
-use std::sync::{Arc, RwLock};
 #[cfg(target_os = "android")]
 use std::time::SystemTime;
+use std::{
+    io,
+    sync::{Arc, RwLock},
+};
 
 ///Logger configuration handler stores access to logger configuration parameters
 #[derive(Clone)]
