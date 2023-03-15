@@ -124,7 +124,7 @@ impl Logger {
     ///
     /// logger.filter_module("path::to::module", LevelFilter::Info);
     /// ```
-    pub fn filter_module(&mut self, module: &str, level: LevelFilter) -> &mut Self {
+    pub fn filter_module(&self, module: &str, level: LevelFilter) -> &Self {
         self.configuration.write().filter = env_logger::filter::Builder::default().filter_module(module, level).build();
         self
     }
@@ -140,7 +140,7 @@ impl Logger {
     /// # use android_logd_logger::Builder;
     ///
     /// let logger = Builder::new().init();
-    /// logger.filter_level(LevelFilter::Info).init();
+    /// logger.filter_level(LevelFilter::Info);
     /// ```
     pub fn filter_level(&self, level: LevelFilter) -> &Self {
         self.configuration.write().filter = env_logger::filter::Builder::default().filter_level(level).build();
@@ -161,7 +161,7 @@ impl Logger {
     /// # use android_logd_logger::Builder;
     ///
     /// let logger = Builder::new().init();
-    /// logger.filter(Some("path::to::module"), LevelFilter::Info).init();
+    /// logger.filter(Some("path::to::module"), LevelFilter::Info);
     /// ```
     pub fn filter(&self, module: Option<&str>, level: LevelFilter) -> &Self {
         self.configuration.write().filter = env_logger::filter::Builder::default().filter(module, level).build();
