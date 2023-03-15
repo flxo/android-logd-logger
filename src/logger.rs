@@ -1,4 +1,4 @@
-use crate::{log_configuration::LogConfiguration, Buffer, Priority, TagMode};
+use crate::{configuration::Configuration, Buffer, Priority, TagMode};
 #[cfg(target_os = "android")]
 use crate::{thread, Record};
 use env_logger::filter::Filter;
@@ -13,19 +13,19 @@ use std::{
 ///Logger configuration handler stores access to logger configuration parameters
 #[derive(Clone)]
 pub struct Logger {
-    pub(crate) logger: Arc<RwLock<LogConfiguration>>,
+    pub(crate) configuration: Arc<RwLock<Configuration>>,
 }
 
 impl Logger {
     /// Create new configuration handler from Arc<RwLock<LogConfiguration>>
-    pub(crate) fn new(configuration: Arc<RwLock<LogConfiguration>>) -> Self {
-        Self { logger: configuration }
+    pub(crate) fn new(configuration: Arc<RwLock<Configuration>>) -> Self {
+        Self { configuration }
     }
 
     /// Create new configuration handler from LogConfiguration object
-    pub(crate) fn new_from_raw(configuration: LogConfiguration) -> Self {
+    pub(crate) fn new_from_raw(configuration: Configuration) -> Self {
         Self {
-            logger: { Arc::new(RwLock::new(configuration)) },
+            configuration: { Arc::new(RwLock::new(configuration)) },
         }
     }
 
@@ -44,7 +44,7 @@ impl Logger {
     /// logger.set_buffer(Buffer::Crash);
     /// ```
     pub fn set_buffer(&self, buffer: Buffer) -> &Self {
-        self.logger.write().unwrap().set_buffer(buffer);
+        self.configuration.write().unwrap().set_buffer(buffer);
         self
     }
 
@@ -62,8 +62,8 @@ impl Logger {
     ///
     /// let binder = logger.getter();
     /// ```
-    pub fn getter(&self) -> std::sync::RwLockReadGuard<LogConfiguration> {
-        self.logger.read().unwrap()
+    pub fn getter(&self) -> std::sync::RwLockReadGuard<Configuration> {
+        self.configuration.read().unwrap()
     }
 
     // Sets tag parameter of logger configuration to custom value
@@ -81,7 +81,7 @@ impl Logger {
     /// logger.set_custom_tag("foo");
     /// ```
     pub fn set_custom_tag(&self, tag: &str) -> &Self {
-        self.logger.write().unwrap().set_custom_tag(tag);
+        self.configuration.write().unwrap().set_custom_tag(tag);
         self
     }
 
@@ -100,7 +100,7 @@ impl Logger {
     /// logger.set_tag_to_target();
     /// ```
     pub fn set_tag_to_target(&self) -> &Self {
-        self.logger.write().unwrap().set_tag_to_target();
+        self.configuration.write().unwrap().set_tag_to_target();
         self
     }
 
@@ -119,7 +119,7 @@ impl Logger {
     /// logger.set_tag_to_strip();
     /// ```
     pub fn set_tag_to_strip(&self) -> &Self {
-        self.logger.write().unwrap().set_tag_to_target_strip();
+        self.configuration.write().unwrap().set_tag_to_target_strip();
         self
     }
 
@@ -139,7 +139,7 @@ impl Logger {
     /// logger.set_prepend_module(true);
     /// ```
     pub fn set_prepend_module(&self, prepend_module: bool) -> &Self {
-        self.logger.write().unwrap().set_prepend_module(prepend_module);
+        self.configuration.write().unwrap().set_prepend_module(prepend_module);
         self
     }
 
@@ -159,7 +159,7 @@ impl Logger {
     /// let prepend_module = logger.get_prepend_module();
     /// ```
     pub fn get_prepend_module(&self) -> bool {
-        self.logger.write().unwrap().prepend_module
+        self.configuration.write().unwrap().prepend_module
     }
 
     /// Sets filter parameter of logger configuration
@@ -198,7 +198,7 @@ impl Logger {
     /// let level_filter = logger.get_level_filter();
     /// ```
     pub fn get_level_filter(&self) -> LevelFilter {
-        self.logger
+        self.configuration
             .write()
             .unwrap()
             .filter
@@ -225,7 +225,7 @@ impl Logger {
     /// logger.set_filter(filter);
     /// ```
     pub fn set_filter(&self, filter: Filter) -> &Self {
-        self.logger.write().unwrap().set_filter(filter);
+        self.configuration.write().unwrap().set_filter(filter);
         self
     }
 
@@ -244,7 +244,7 @@ impl Logger {
     /// logger.set_module_and_level_filter("path::to::module", LevelFilter::Info);
     /// ```
     pub fn set_module_and_level_filter(&self, module: &str, level: LevelFilter) -> &Self {
-        self.logger.write().unwrap().set_module_and_level_filter(module, level);
+        self.configuration.write().unwrap().set_module_and_level_filter(module, level);
         self
     }
 
@@ -263,12 +263,12 @@ impl Logger {
     /// logger.set_level_filter(LevelFilter::Info);
     /// ```
     pub fn set_level_filter(&self, level_filter: LevelFilter) -> &Self {
-        self.logger.write().unwrap().set_level_filter(level_filter);
+        self.configuration.write().unwrap().set_level_filter(level_filter);
         self
     }
 
-    pub(crate) fn get_config(&self) -> Arc<RwLock<LogConfiguration>> {
-        Arc::clone(&self.logger)
+    pub(crate) fn get_config(&self) -> Arc<RwLock<Configuration>> {
+        Arc::clone(&self.configuration)
     }
 }
 pub(crate) struct LoggerImpl {
@@ -279,7 +279,7 @@ pub(crate) struct LoggerImpl {
 }
 
 impl LoggerImpl {
-    pub fn new(configuration: Arc<RwLock<LogConfiguration>>) -> Result<LoggerImpl, io::Error> {
+    pub fn new(configuration: Arc<RwLock<Configuration>>) -> Result<LoggerImpl, io::Error> {
         Ok(LoggerImpl {
             configuration_handle: Logger::new(configuration),
             #[cfg(not(target_os = "android"))]

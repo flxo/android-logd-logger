@@ -85,8 +85,8 @@ use log::{set_boxed_logger, LevelFilter, SetLoggerError};
 use std::{fmt, io};
 use thiserror::Error;
 
+mod configuration;
 mod events;
-mod log_configuration;
 #[allow(dead_code)]
 #[cfg(not(target_os = "windows"))]
 mod logd;
@@ -480,7 +480,7 @@ impl Builder {
         let prepend_module = self.prepend_module;
         let pstore = self.pstore;
 
-        let config = log_configuration::LogConfiguration::new(filter, tag, prepend_module, pstore, Some(buffer));
+        let config = configuration::Configuration::new(filter, tag, prepend_module, pstore, Some(buffer));
         let configuration = logger::Logger::new_from_raw(config);
 
         let logger = logger::LoggerImpl::new(configuration.get_config()).expect("failed to build logger");

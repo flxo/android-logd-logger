@@ -3,7 +3,7 @@ use super::{Buffer, TagMode};
 use env_logger::filter::Filter;
 
 /// Contain all logger properties
-pub struct LogConfiguration {
+pub struct Configuration {
     pub(crate) filter: Filter,
     pub(crate) tag: TagMode,
     pub(crate) prepend_module: bool,
@@ -12,7 +12,7 @@ pub struct LogConfiguration {
     pub(crate) buffer_id: Option<Buffer>,
 }
 
-impl LogConfiguration {
+impl Configuration {
     /// Initializes the Log Configuration
     pub(crate) fn new(filter: Filter, tag: TagMode, prepend_module: bool, pstore: bool, buffer_id: Option<Buffer>) -> Self {
         Self {
