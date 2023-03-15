@@ -80,9 +80,13 @@
 
 #![deny(missing_docs)]
 
+use configuration::Configuration;
 use env_logger::filter::Builder as FilterBuilder;
 use log::{set_boxed_logger, LevelFilter, SetLoggerError};
-use std::{fmt, io};
+use std::{
+    fmt, io,
+    sync::{Arc, RwLock},
+};
 use thiserror::Error;
 
 mod configuration;
@@ -480,8 +484,15 @@ impl Builder {
         let prepend_module = self.prepend_module;
         let pstore = self.pstore;
 
-        let config = configuration::Configuration::new(filter, tag, prepend_module, pstore, Some(buffer));
-        let configuration = logger::Logger::new_from_raw(config);
+        let configuration = Configuration {
+            filter,
+            tag,
+            prepend_module,
+            pstore,
+            buffer_id: Some(buffer),
+        };
+        let configuration = Arc::new(RwLock::new(configuration));
+        let configuration = logger::Logger { configuration };
 
         let logger = logger::LoggerImpl::new(configuration.get_config()).expect("failed to build logger");
         (logger, configuration)

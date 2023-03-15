@@ -17,18 +17,6 @@ pub struct Logger {
 }
 
 impl Logger {
-    /// Create new configuration handler from Arc<RwLock<LogConfiguration>>
-    pub(crate) fn new(configuration: Arc<RwLock<Configuration>>) -> Self {
-        Self { configuration }
-    }
-
-    /// Create new configuration handler from LogConfiguration object
-    pub(crate) fn new_from_raw(configuration: Configuration) -> Self {
-        Self {
-            configuration: { Arc::new(RwLock::new(configuration)) },
-        }
-    }
-
     /// Sets buffer parameter of logger configuration
     ///
     /// # Examples
@@ -281,7 +269,7 @@ pub(crate) struct LoggerImpl {
 impl LoggerImpl {
     pub fn new(configuration: Arc<RwLock<Configuration>>) -> Result<LoggerImpl, io::Error> {
         Ok(LoggerImpl {
-            configuration_handle: Logger::new(configuration),
+            configuration_handle: Logger { configuration },
             #[cfg(not(target_os = "android"))]
             timestamp_format: time::format_description::parse(
                 "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]",

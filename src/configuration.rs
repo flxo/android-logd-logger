@@ -13,17 +13,6 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    /// Initializes the Log Configuration
-    pub(crate) fn new(filter: Filter, tag: TagMode, prepend_module: bool, pstore: bool, buffer_id: Option<Buffer>) -> Self {
-        Self {
-            filter,
-            tag,
-            prepend_module,
-            pstore,
-            buffer_id,
-        }
-    }
-
     /// Set Log configuration buffer field
     pub fn set_buffer(&mut self, buffer: Buffer) -> &mut Self {
         self.buffer_id = Some(buffer);
