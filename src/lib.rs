@@ -81,8 +81,10 @@
 #![deny(missing_docs)]
 
 use env_logger::filter::Builder as FilterBuilder;
-use log::{LevelFilter, SetLoggerError};
-use std::{fmt, io};
+use log::{set_boxed_logger, LevelFilter, SetLoggerError};
+use logger::{Configuration, Logger};
+use parking_lot::RwLock;
+use std::{fmt, io, sync::Arc};
 use thiserror::Error;
 
 mod events;
@@ -385,7 +387,7 @@ impl Builder {
     ///
     /// # Examples
     ///
-    /// Only include messages for warning and above for logs in `path::to::module`:
+    /// Only include messages for warning and above.
     ///
     /// ```
     /// # use log::LevelFilter;
@@ -448,12 +450,27 @@ impl Builder {
     ///
     /// This function will fail if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn try_init(&mut self) -> Result<(), SetLoggerError> {
-        let logger = self.build();
-        let max_level = logger.level_filter();
-        log::set_boxed_logger(Box::new(logger)).map(|_| {
-            log::set_max_level(max_level);
-        })
+    pub fn try_init(&mut self) -> Result<Logger, SetLoggerError> {
+        let configuration = Configuration {
+            filter: self.filter.build(),
+            tag: self.tag.clone(),
+            prepend_module: self.prepend_module,
+            pstore: self.pstore,
+            buffer_id: self.buffer.unwrap_or(Buffer::Main),
+        };
+        let max_level = configuration.filter.filter();
+        let configuration = Arc::new(RwLock::new(configuration));
+
+        let logger = Logger {
+            configuration: configuration.clone(),
+        };
+        let logger_impl = logger::LoggerImpl::new(configuration).expect("failed to build logger");
+
+        set_boxed_logger(Box::new(logger_impl))
+            .map(|_| {
+                log::set_max_level(max_level);
+            })
+            .map(|_| logger)
     }
 
     /// Initializes the global logger with the built logger.
@@ -465,17 +482,8 @@ impl Builder {
     ///
     /// This function will panic if it is called more than once, or if another
     /// library has already initialized a global logger.
-    pub fn init(&mut self) {
+    pub fn init(&mut self) -> Logger {
         self.try_init()
-            .expect("Builder::init should not be called after logger initialized");
-    }
-
-    fn build(&mut self) -> logger::Logger {
-        let buffer = self.buffer.unwrap_or(Buffer::Main);
-        let filter = self.filter.build();
-        let tag = self.tag.clone();
-        let prepend_module = self.prepend_module;
-        let pstore = self.pstore;
-        logger::Logger::new(buffer, filter, tag, prepend_module, pstore).expect("failed to build logger")
+            .expect("Builder::init should not be called after logger initialized")
     }
 }
