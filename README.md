@@ -35,7 +35,7 @@ Add this to your Cargo.toml
 
 ```toml
 [dependencies]
-android-logd-logger = "0.2.1"
+android-logd-logger = "0.3.3"
 ```
 
 Initialize the logger with a fixed `tag` and the module path included
