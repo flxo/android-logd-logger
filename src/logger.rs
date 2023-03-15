@@ -1,7 +1,7 @@
 #[cfg(target_os = "android")]
 use crate::{thread, Record};
 use crate::{Buffer, Priority, TagMode};
-use env_logger::filter::Filter;
+use env_logger::filter::{Builder, Filter};
 use log::{LevelFilter, Log, Metadata};
 use parking_lot::RwLock;
 #[cfg(target_os = "android")]
@@ -125,7 +125,7 @@ impl Logger {
     /// logger.filter_module("path::to::module", LevelFilter::Info);
     /// ```
     pub fn filter_module(&self, module: &str, level: LevelFilter) -> &Self {
-        self.configuration.write().filter = env_logger::filter::Builder::default().filter_module(module, level).build();
+        self.configuration.write().filter = Builder::default().filter_module(module, level).build();
         self
     }
 
@@ -133,7 +133,7 @@ impl Logger {
     ///
     /// # Examples
     ///
-    /// Only include messages for warning and above for logs in `path::to::module`:
+    /// Only include messages for warning and above.
     ///
     /// ```
     /// # use log::LevelFilter;
@@ -143,7 +143,7 @@ impl Logger {
     /// logger.filter_level(LevelFilter::Info);
     /// ```
     pub fn filter_level(&self, level: LevelFilter) -> &Self {
-        self.configuration.write().filter = env_logger::filter::Builder::default().filter_level(level).build();
+        self.configuration.write().filter = Builder::default().filter_level(level).build();
         self
     }
 
@@ -164,7 +164,7 @@ impl Logger {
     /// logger.filter(Some("path::to::module"), LevelFilter::Info);
     /// ```
     pub fn filter(&self, module: Option<&str>, level: LevelFilter) -> &Self {
-        self.configuration.write().filter = env_logger::filter::Builder::default().filter(module, level).build();
+        self.configuration.write().filter = Builder::default().filter(module, level).build();
         self
     }
 
@@ -173,7 +173,7 @@ impl Logger {
     ///
     /// See the module documentation for more details.
     pub fn parse_filters(&mut self, filters: &str) -> &mut Self {
-        self.configuration.write().filter = env_logger::filter::Builder::default().parse(filters).build();
+        self.configuration.write().filter = Builder::default().parse(filters).build();
         self
     }
 
@@ -295,7 +295,7 @@ impl Log for LoggerImpl {
 
     #[cfg(target_os = "android")]
     fn flush(&self) {
-        if self.configuration_handle.getter().pstore {
+        if self.configuration.read().pstore {
             crate::pmsg::flush().ok();
         }
     }
