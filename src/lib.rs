@@ -82,7 +82,7 @@
 
 use env_logger::filter::Builder as FilterBuilder;
 use log::{set_boxed_logger, LevelFilter, SetLoggerError};
-use logger::{Configuration, Logger};
+use logger::Configuration;
 use parking_lot::RwLock;
 use std::{fmt, io, sync::Arc};
 use thiserror::Error;
@@ -100,7 +100,10 @@ mod thread;
 
 pub use events::*;
 
-/// Max log entry len
+/// Logger configuration handle.
+pub use logger::Logger;
+
+/// Max log entry len.
 const LOGGER_ENTRY_MAX_LEN: usize = 5 * 1024;
 
 /// Error
