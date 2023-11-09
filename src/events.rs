@@ -132,6 +132,58 @@ where
     }
 }
 
+impl<T, U> From<(T, U)> for EventValue
+where
+    T: Into<EventValue>,
+    U: Into<EventValue>,
+{
+    fn from(value: (T, U)) -> Self {
+        EventValue::List(vec![value.0.into(), value.1.into()])
+    }
+}
+
+impl<T, U, V> From<(T, U, V)> for EventValue
+where
+    T: Into<EventValue>,
+    U: Into<EventValue>,
+    V: Into<EventValue>,
+{
+    fn from(value: (T, U, V)) -> Self {
+        EventValue::List(vec![value.0.into(), value.1.into(), value.2.into()])
+    }
+}
+
+impl<T, U, V, X> From<(T, U, V, X)> for EventValue
+where
+    T: Into<EventValue>,
+    U: Into<EventValue>,
+    V: Into<EventValue>,
+    X: Into<EventValue>,
+{
+    fn from(value: (T, U, V, X)) -> Self {
+        EventValue::List(vec![value.0.into(), value.1.into(), value.2.into(), value.3.into()])
+    }
+}
+
+impl<T, U, V, X, Y> From<(T, U, V, X, Y)> for EventValue
+where
+    T: Into<EventValue>,
+    U: Into<EventValue>,
+    V: Into<EventValue>,
+    X: Into<EventValue>,
+    Y: Into<EventValue>,
+{
+    fn from(value: (T, U, V, X, Y)) -> Self {
+        EventValue::List(vec![
+            value.0.into(),
+            value.1.into(),
+            value.2.into(),
+            value.3.into(),
+            value.4.into(),
+        ])
+    }
+}
+
 /// Write an event with the timestamp now to `Buffer::Events`
 /// ```
 /// use android_logd_logger::{write_event, write_event_now, Error, Event, EventValue};
