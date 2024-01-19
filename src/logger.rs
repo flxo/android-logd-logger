@@ -261,7 +261,7 @@ impl Log for LoggerImpl {
     #[cfg(not(target_os = "android"))]
     fn flush(&self) {
         use std::io::Write;
-        io::stdout().flush().ok();
+        io::stderr().flush().ok();
     }
 
     #[cfg(target_os = "android")]
