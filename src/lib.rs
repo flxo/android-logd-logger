@@ -63,6 +63,14 @@
 //! android_logd_logger::write_event_now(1, "test").unwrap();
 //! ```
 //!
+//! To forge android logd entry:
+//!
+//! ```
+//! # use android_logd_logger::{Buffer, Priority};
+//!
+//! android_logd_logger::log(Buffer::Main, 0, 0, 0, 0, &"tag", Priority::Info, &"message").unwrap();
+//! ```
+//!
 //! # Configuration
 //!
 //! Writing to the logd socket is a single point of synchronization for threads.
@@ -120,15 +128,32 @@ pub enum Error {
 /// Log priority as defined by logd
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
-enum Priority {
+pub enum Priority {
+    /// For internal logd use only
     _Unknown = 0,
+
+    /// For internal logd use only
     _Default = 1,
+
+    /// Android verbose log level
     Verbose = 2,
+
+    /// Android debug log level
     Debug = 3,
+
+    /// Android info log level
     Info = 4,
+
+    /// Android warning log level
     Warn = 5,
+
+    /// Android error log level
     Error = 6,
+
+    /// Android fatal log level
     _Fatal = 7,
+
+    /// For internal logd use only
     _Silent = 8,
 }
 
@@ -489,4 +514,45 @@ impl Builder {
         self.try_init()
             .expect("Builder::init should not be called after logger initialized")
     }
+}
+
+/// Construct a log entry and send it to the logd writer socket
+///
+/// This can be used to forge an android logd entry
+///
+/// # Example
+///
+/// ```
+/// # use android_logd_logger::{log, Buffer, Priority};
+/// # use chrono::prelude::Utc;
+///
+/// let time = Utc::now();
+///
+/// log(Buffer::Main, 0, 0, time.timestamp() as u32, time.timestamp_subsec_nanos(),
+/// &"tag", Priority::Info, &"entry").unwrap();
+/// ```
+pub fn log(
+    buffer_id: Buffer,
+    pid: u16,
+    thread_id: u16,
+    timestamp_secs: u32,
+    timestamp_subsec_nanos: u32,
+    tag: &str,
+    priority: Priority,
+    message: &str,
+) -> Result<(), Error> {
+    let record = Record {
+        timestamp_secs,
+        timestamp_subsec_nanos,
+        pid,
+        thread_id,
+        buffer_id,
+        tag,
+        priority,
+        message,
+    };
+
+    crate::logd::log(&record);
+
+    Ok(())
 }
