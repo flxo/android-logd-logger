@@ -67,8 +67,9 @@
 //!
 //! ```
 //! # use android_logd_logger::{Buffer, Priority};
+//! # use std::time::SystemTime;
 //!
-//! android_logd_logger::log(Buffer::Main, 0, 0, 0, 0, &"tag", Priority::Info, &"message").unwrap();
+//! android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
 //! ```
 //!
 //! # Configuration
@@ -92,7 +93,7 @@ use env_logger::filter::Builder as FilterBuilder;
 use log::{set_boxed_logger, LevelFilter, SetLoggerError};
 use logger::Configuration;
 use parking_lot::RwLock;
-use std::{fmt, io, sync::Arc};
+use std::{fmt, io, sync::Arc, time::SystemTime};
 use thiserror::Error;
 
 mod events;
@@ -523,27 +524,26 @@ impl Builder {
 /// # Example
 ///
 /// ```
-/// # use android_logd_logger::{log, Buffer, Priority};
-/// # use chrono::prelude::Utc;
+/// # use android_logd_logger::{Buffer, Priority};
+/// # use std::time::SystemTime;
 ///
-/// let time = Utc::now();
-///
-/// log(Buffer::Main, 0, 0, time.timestamp() as u32, time.timestamp_subsec_nanos(),
-/// &"tag", Priority::Info, &"entry").unwrap();
+/// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
 /// ```
 pub fn log(
+    timestamp: SystemTime,
     buffer_id: Buffer,
+    priority: Priority,
     pid: u16,
     thread_id: u16,
-    timestamp_secs: u32,
-    timestamp_subsec_nanos: u32,
     tag: &str,
-    priority: Priority,
     message: &str,
 ) -> Result<(), Error> {
+    let timestamp = timestamp
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|_| Error::Io(io::Error::new(io::ErrorKind::Other, "time error")))?;
     let record = Record {
-        timestamp_secs,
-        timestamp_subsec_nanos,
+        timestamp_secs: timestamp.as_secs() as u32,
+        timestamp_subsec_nanos: timestamp.subsec_nanos(),
         pid,
         thread_id,
         buffer_id,
@@ -552,7 +552,7 @@ pub fn log(
         message,
     };
 
-    crate::logd::log(&record);
+    logd::log(&record);
 
     Ok(())
 }
