@@ -620,6 +620,6 @@ fn log_record(record: &Record) -> Result<(), Error> {
         })
         .and_then(|ts| ts.format(&DATE_TIME_FORMAT).map_err(|e| Error::Timestamp(e.to_string())))?;
 
-    println!("{} {} {} {} {}: {}", timestamp, pid, thread_id, priority, tag, message);
+    eprintln!("{} {} {} {} {}: {}", timestamp, pid, thread_id, priority, tag, message);
     Ok(())
 }
