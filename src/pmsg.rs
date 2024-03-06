@@ -3,6 +3,7 @@ use bytes::{BufMut, BytesMut};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Write},
+    time::UNIX_EPOCH,
 };
 
 /// Persistent message charater device
@@ -60,14 +61,15 @@ fn log_pmsg_packet(record: &Record, msg_part: &str) {
 
     let packet_len = PMSG_HEADER_LEN + LOG_HEADER_LEN + payload_len;
     let mut buffer = bytes::BytesMut::with_capacity(packet_len as usize);
+    let timestamp = record.timestamp.duration_since(UNIX_EPOCH).unwrap();
 
     write_pmsg_header(&mut buffer, packet_len, DUMMY_UID, record.pid);
     write_log_header(
         &mut buffer,
         record.buffer_id,
         record.thread_id,
-        record.timestamp_secs,
-        record.timestamp_subsec_nanos,
+        timestamp.as_secs() as u32,
+        timestamp.subsec_nanos(),
     );
     write_payload(&mut buffer, record.priority, record.tag, msg_part);
 

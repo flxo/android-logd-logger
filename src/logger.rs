@@ -2,7 +2,7 @@ use crate::{thread, Buffer, Priority, Record, TagMode};
 use env_logger::filter::{Builder, Filter};
 use log::{LevelFilter, Log, Metadata};
 use parking_lot::RwLock;
-use std::{io, sync::Arc, time::SystemTime};
+use std::{io, process, sync::Arc, time::SystemTime};
 
 /// Logger configuration.
 pub(crate) struct Configuration {
@@ -237,13 +237,10 @@ impl Log for LoggerImpl {
             TagMode::Custom(tag) => tag.as_str(),
         };
 
-        let timestamp = SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("failed to acquire time");
+        let timestamp = SystemTime::now();
         let record = Record {
-            timestamp_secs: timestamp.as_secs() as u32,
-            timestamp_subsec_nanos: timestamp.subsec_nanos(),
-            pid: std::process::id() as u16,
+            timestamp,
+            pid: process::id() as u16,
             thread_id: thread::id() as u16,
             buffer_id: configuration.buffer_id,
             tag,

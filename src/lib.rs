@@ -246,11 +246,8 @@ enum TagMode {
 /// consistent timestamps and other information to both the `logd` and the
 /// `pmsg` device without paying the price for system calls twice.
 struct Record<'tag, 'msg> {
-    timestamp_secs: u32,
-    timestamp_subsec_nanos: u32,
-    #[allow(unused)]
+    timestamp: SystemTime,
     pid: u16,
-    #[allow(unused)]
     thread_id: u16,
     buffer_id: Buffer,
     tag: &'tag str,
@@ -542,12 +539,8 @@ pub fn log(
     tag: &str,
     message: &str,
 ) -> Result<(), Error> {
-    let timestamp = timestamp
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|_| Error::Io(io::Error::new(io::ErrorKind::Other, "time error")))?;
     let record = Record {
-        timestamp_secs: timestamp.as_secs() as u32,
-        timestamp_subsec_nanos: timestamp.subsec_nanos(),
+        timestamp,
         pid,
         thread_id,
         buffer_id,
@@ -583,12 +576,8 @@ pub fn log(
     tag: &str,
     message: &str,
 ) -> Result<(), Error> {
-    let timestamp = timestamp
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|e| Error::Timestamp(e.to_string()))?;
     let record = Record {
-        timestamp_secs: timestamp.as_secs() as u32,
-        timestamp_subsec_nanos: timestamp.subsec_nanos(),
+        timestamp,
         pid,
         thread_id,
         buffer_id,
@@ -608,12 +597,13 @@ fn log_record(record: &Record) -> Result<(), Error> {
 
 #[cfg(not(target_os = "android"))]
 fn log_record(record: &Record) -> Result<(), Error> {
+    use std::time::UNIX_EPOCH;
+
     const DATE_TIME_FORMAT: &[time::format_description::FormatItem<'_>] =
         time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
 
     let Record {
-        timestamp_secs,
-        timestamp_subsec_nanos,
+        timestamp,
         tag,
         priority,
         message,
@@ -622,11 +612,13 @@ fn log_record(record: &Record) -> Result<(), Error> {
         ..
     } = record;
 
-    let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(
-        *timestamp_secs as i128 * 1_000_000_000 + *timestamp_subsec_nanos as i128,
-    )
-    .map_err(|e| Error::Timestamp(e.to_string()))
-    .and_then(|ts| ts.format(&DATE_TIME_FORMAT).map_err(|e| Error::Timestamp(e.to_string())))?;
+    let timestamp = timestamp
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| Error::Timestamp(e.to_string()))
+        .and_then(|ts| {
+            time::OffsetDateTime::from_unix_timestamp_nanos(ts.as_nanos() as i128).map_err(|e| Error::Timestamp(e.to_string()))
+        })
+        .and_then(|ts| ts.format(&DATE_TIME_FORMAT).map_err(|e| Error::Timestamp(e.to_string())))?;
 
     println!("{} {} {} {} {}: {}", timestamp, pid, thread_id, priority, tag, message);
     Ok(())
