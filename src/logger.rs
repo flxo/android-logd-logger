@@ -1,12 +1,8 @@
-#[cfg(target_os = "android")]
-use crate::{thread, Record};
-use crate::{Buffer, Priority, TagMode};
+use crate::{thread, Buffer, Priority, Record, TagMode};
 use env_logger::filter::{Builder, Filter};
 use log::{LevelFilter, Log, Metadata};
 use parking_lot::RwLock;
-#[cfg(target_os = "android")]
-use std::time::SystemTime;
-use std::{io, sync::Arc};
+use std::{io, sync::Arc, time::SystemTime};
 
 /// Logger configuration.
 pub(crate) struct Configuration {
@@ -199,20 +195,11 @@ impl Logger {
 /// Logger implementation.
 pub(crate) struct LoggerImpl {
     configuration: Arc<RwLock<Configuration>>,
-    #[cfg(not(target_os = "android"))]
-    timestamp_format: Vec<time::format_description::FormatItem<'static>>,
 }
 
 impl LoggerImpl {
     pub fn new(configuration: Arc<RwLock<Configuration>>) -> Result<LoggerImpl, io::Error> {
-        Ok(LoggerImpl {
-            configuration,
-            #[cfg(not(target_os = "android"))]
-            timestamp_format: time::format_description::parse(
-                "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]",
-            )
-            .unwrap(),
-        })
+        Ok(LoggerImpl { configuration })
     }
 }
 
@@ -250,40 +237,27 @@ impl Log for LoggerImpl {
             TagMode::Custom(tag) => tag.as_str(),
         };
 
+        let timestamp = SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("failed to acquire time");
+        let record = Record {
+            timestamp_secs: timestamp.as_secs() as u32,
+            timestamp_subsec_nanos: timestamp.subsec_nanos(),
+            pid: std::process::id() as u16,
+            thread_id: thread::id() as u16,
+            buffer_id: configuration.buffer_id,
+            tag,
+            priority,
+            message: &message,
+        };
+
+        crate::log_record(&record).ok();
+
         #[cfg(target_os = "android")]
         {
-            let timestamp = SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("failed to acquire time");
-            let log_record = Record {
-                timestamp_secs: timestamp.as_secs() as u32,
-                timestamp_subsec_nanos: timestamp.subsec_nanos() as u32,
-                pid: std::process::id() as u16,
-                thread_id: thread::id() as u16,
-                buffer_id: configuration.buffer_id,
-                tag,
-                priority,
-                message: &message,
-            };
-            crate::logd::log(&log_record);
             if configuration.pstore {
-                crate::pmsg::log(&log_record);
+                crate::pmsg::log(&record);
             }
-        }
-
-        #[cfg(not(target_os = "android"))]
-        {
-            let now = ::time::OffsetDateTime::now_utc();
-            let timestamp = now.format(&self.timestamp_format).unwrap();
-            println!(
-                "{} {} {} {} {}: {}",
-                timestamp,
-                std::process::id(),
-                crate::thread::id(),
-                priority,
-                tag,
-                message
-            );
         }
     }
 

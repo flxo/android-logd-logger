@@ -124,6 +124,9 @@ pub enum Error {
     /// The supplied event data exceed the maximum length
     #[error("Event exceeds maximum size")]
     EventSize,
+    /// Timestamp error
+    #[error("Timestamp error: {0}")]
+    Timestamp(String),
 }
 
 /// Log priority as defined by logd
@@ -529,6 +532,7 @@ impl Builder {
 ///
 /// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
 /// ```
+#[cfg(target_os = "android")]
 pub fn log(
     timestamp: SystemTime,
     buffer_id: Buffer,
@@ -554,5 +558,76 @@ pub fn log(
 
     logd::log(&record);
 
+    Ok(())
+}
+
+/// Construct a log entry
+///
+/// This can be used to forge an android logd entry
+///
+/// # Example
+///
+/// ```
+/// # use android_logd_logger::{Buffer, Priority};
+/// # use std::time::SystemTime;
+///
+/// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
+/// ```
+#[cfg(not(target_os = "android"))]
+pub fn log(
+    timestamp: SystemTime,
+    buffer_id: Buffer,
+    priority: Priority,
+    pid: u16,
+    thread_id: u16,
+    tag: &str,
+    message: &str,
+) -> Result<(), Error> {
+    let timestamp = timestamp
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|e| Error::Timestamp(e.to_string()))?;
+    let record = Record {
+        timestamp_secs: timestamp.as_secs() as u32,
+        timestamp_subsec_nanos: timestamp.subsec_nanos(),
+        pid,
+        thread_id,
+        buffer_id,
+        tag,
+        priority,
+        message,
+    };
+
+    log_record(&record)
+}
+
+#[cfg(target_os = "android")]
+fn log_record(record: &Record) -> Result<(), Error> {
+    logd::log(record);
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
+fn log_record(record: &Record) -> Result<(), Error> {
+    const DATE_TIME_FORMAT: &[time::format_description::FormatItem<'_>] =
+        time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
+
+    let Record {
+        timestamp_secs,
+        timestamp_subsec_nanos,
+        tag,
+        priority,
+        message,
+        thread_id,
+        pid,
+        ..
+    } = record;
+
+    let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(
+        *timestamp_secs as i128 * 1_000_000_000 + *timestamp_subsec_nanos as i128,
+    )
+    .map_err(|e| Error::Timestamp(e.to_string()))
+    .and_then(|ts| ts.format(&DATE_TIME_FORMAT).map_err(|e| Error::Timestamp(e.to_string())))?;
+
+    println!("{} {} {} {} {}: {}", timestamp, pid, thread_id, priority, tag, message);
     Ok(())
 }
