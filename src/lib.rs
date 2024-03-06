@@ -63,6 +63,15 @@
 //! android_logd_logger::write_event_now(1, "test").unwrap();
 //! ```
 //!
+//! To forge android logd entry:
+//!
+//! ```
+//! # use android_logd_logger::{Buffer, Priority};
+//! # use std::time::SystemTime;
+//!
+//! android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
+//! ```
+//!
 //! # Configuration
 //!
 //! Writing to the logd socket is a single point of synchronization for threads.
@@ -84,7 +93,7 @@ use env_logger::filter::Builder as FilterBuilder;
 use log::{set_boxed_logger, LevelFilter, SetLoggerError};
 use logger::Configuration;
 use parking_lot::RwLock;
-use std::{fmt, io, sync::Arc};
+use std::{fmt, io, sync::Arc, time::SystemTime};
 use thiserror::Error;
 
 mod events;
@@ -115,20 +124,40 @@ pub enum Error {
     /// The supplied event data exceed the maximum length
     #[error("Event exceeds maximum size")]
     EventSize,
+    /// Timestamp error
+    #[error("Timestamp error: {0}")]
+    Timestamp(String),
 }
 
 /// Log priority as defined by logd
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
-enum Priority {
+pub enum Priority {
+    /// For internal logd use only
     _Unknown = 0,
+
+    /// For internal logd use only
     _Default = 1,
+
+    /// Android verbose log level
     Verbose = 2,
+
+    /// Android debug log level
     Debug = 3,
+
+    /// Android info log level
     Info = 4,
+
+    /// Android warning log level
     Warn = 5,
+
+    /// Android error log level
     Error = 6,
+
+    /// Android fatal log level
     _Fatal = 7,
+
+    /// For internal logd use only
     _Silent = 8,
 }
 
@@ -217,11 +246,8 @@ enum TagMode {
 /// consistent timestamps and other information to both the `logd` and the
 /// `pmsg` device without paying the price for system calls twice.
 struct Record<'tag, 'msg> {
-    timestamp_secs: u32,
-    timestamp_subsec_nanos: u32,
-    #[allow(unused)]
+    timestamp: SystemTime,
     pid: u16,
-    #[allow(unused)]
     thread_id: u16,
     buffer_id: Buffer,
     tag: &'tag str,
@@ -489,4 +515,111 @@ impl Builder {
         self.try_init()
             .expect("Builder::init should not be called after logger initialized")
     }
+}
+
+/// Construct a log entry and send it to the logd writer socket
+///
+/// This can be used to forge an android logd entry
+///
+/// # Example
+///
+/// ```
+/// # use android_logd_logger::{Buffer, Priority};
+/// # use std::time::SystemTime;
+///
+/// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
+/// ```
+#[cfg(target_os = "android")]
+pub fn log(
+    timestamp: SystemTime,
+    buffer_id: Buffer,
+    priority: Priority,
+    pid: u16,
+    thread_id: u16,
+    tag: &str,
+    message: &str,
+) -> Result<(), Error> {
+    let record = Record {
+        timestamp,
+        pid,
+        thread_id,
+        buffer_id,
+        tag,
+        priority,
+        message,
+    };
+
+    logd::log(&record);
+
+    Ok(())
+}
+
+/// Construct a log entry
+///
+/// This can be used to forge an android logd entry
+///
+/// # Example
+///
+/// ```
+/// # use android_logd_logger::{Buffer, Priority};
+/// # use std::time::SystemTime;
+///
+/// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
+/// ```
+#[cfg(not(target_os = "android"))]
+pub fn log(
+    timestamp: SystemTime,
+    buffer_id: Buffer,
+    priority: Priority,
+    pid: u16,
+    thread_id: u16,
+    tag: &str,
+    message: &str,
+) -> Result<(), Error> {
+    let record = Record {
+        timestamp,
+        pid,
+        thread_id,
+        buffer_id,
+        tag,
+        priority,
+        message,
+    };
+
+    log_record(&record)
+}
+
+#[cfg(target_os = "android")]
+fn log_record(record: &Record) -> Result<(), Error> {
+    logd::log(record);
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
+fn log_record(record: &Record) -> Result<(), Error> {
+    use std::time::UNIX_EPOCH;
+
+    const DATE_TIME_FORMAT: &[time::format_description::FormatItem<'_>] =
+        time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
+
+    let Record {
+        timestamp,
+        tag,
+        priority,
+        message,
+        thread_id,
+        pid,
+        ..
+    } = record;
+
+    let timestamp = timestamp
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| Error::Timestamp(e.to_string()))
+        .and_then(|ts| {
+            time::OffsetDateTime::from_unix_timestamp_nanos(ts.as_nanos() as i128).map_err(|e| Error::Timestamp(e.to_string()))
+        })
+        .and_then(|ts| ts.format(&DATE_TIME_FORMAT).map_err(|e| Error::Timestamp(e.to_string())))?;
+
+    println!("{} {} {} {} {}: {}", timestamp, pid, thread_id, priority, tag, message);
+    Ok(())
 }

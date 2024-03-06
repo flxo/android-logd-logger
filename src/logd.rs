@@ -2,6 +2,7 @@ use std::{
     io::{self, ErrorKind},
     os::unix::net::UnixDatagram,
     path::Path,
+    time::UNIX_EPOCH,
 };
 
 use bytes::BufMut;
@@ -76,13 +77,13 @@ pub(crate) fn log(record: &Record) {
     // Tag and message len with null terminator.
     let tag_len = record.tag.bytes().len() + 1;
     let message_len = record.message.bytes().len() + 1;
-
     let mut buffer = bytes::BytesMut::with_capacity(12 + tag_len + message_len);
+    let timestamp = record.timestamp.duration_since(UNIX_EPOCH).unwrap();
 
     buffer.put_u8(record.buffer_id.into());
     buffer.put_u16_le(thread::id() as u16);
-    buffer.put_u32_le(record.timestamp_secs);
-    buffer.put_u32_le(record.timestamp_subsec_nanos);
+    buffer.put_u32_le(timestamp.as_secs() as u32);
+    buffer.put_u32_le(timestamp.subsec_nanos());
     buffer.put_u8(record.priority as u8);
     buffer.put(record.tag.as_bytes());
     buffer.put_u8(0);
@@ -98,7 +99,7 @@ pub(crate) fn log(record: &Record) {
 /// Send a log event to logd
 pub(crate) fn write_event(log_buffer: Buffer, event: &Event) {
     let mut buffer = bytes::BytesMut::with_capacity(LOGGER_ENTRY_MAX_LEN);
-    let timestamp = event.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap();
+    let timestamp = event.timestamp.duration_since(UNIX_EPOCH).unwrap();
 
     buffer.put_u8(log_buffer.into());
     buffer.put_u16_le(thread::id() as u16);
@@ -130,12 +131,9 @@ fn smoke() {
 
     let start = std::time::Instant::now();
     while start.elapsed() < std::time::Duration::from_secs(5) {
-        let timestamp = SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("failed to acquire time");
-        let log_record = Record {
-            timestamp_secs: timestamp.as_secs() as u32,
-            timestamp_subsec_nanos: timestamp.subsec_nanos() as u32,
+        let timestamp = SystemTime::now();
+        let record = Record {
+            timestamp,
             pid: std::process::id() as u16,
             thread_id: thread::id() as u16,
             buffer_id: Buffer::Main,
@@ -143,6 +141,6 @@ fn smoke() {
             priority: Priority::Info,
             message: "test",
         };
-        log(&log_record);
+        log(&record);
     }
 }
