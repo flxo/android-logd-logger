@@ -1,6 +1,6 @@
 [package]
 name = "android-logd-logger"
-version = "0.4.3-pre"
+version = "0.4.3"
 authors = [
     "Felix Obenhuber <felix@obenhuber.de>",
     "Jens Waechtler <jens.waechtler@esrlabs.com>",
