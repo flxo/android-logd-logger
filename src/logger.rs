@@ -1,8 +1,8 @@
-use crate::{thread, Buffer, Priority, Record, TagMode};
+use crate::{Buffer, Priority, Record, TagMode};
 use env_logger::filter::{Builder, Filter};
 use log::{LevelFilter, Log, Metadata};
 use parking_lot::RwLock;
-use std::{io, process, sync::Arc, time::SystemTime};
+use std::{io, sync::Arc, time::SystemTime};
 
 /// Logger configuration.
 pub(crate) struct Configuration {
@@ -240,8 +240,6 @@ impl Log for LoggerImpl {
         let timestamp = SystemTime::now();
         let record = Record {
             timestamp,
-            pid: process::id() as u16,
-            thread_id: thread::id() as u16,
             buffer_id: configuration.buffer_id,
             tag,
             priority,

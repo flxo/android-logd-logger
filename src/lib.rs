@@ -6,7 +6,7 @@ use env_logger::filter::Builder as FilterBuilder;
 use log::{set_boxed_logger, LevelFilter, SetLoggerError};
 use logger::Configuration;
 use parking_lot::RwLock;
-use std::{fmt, io, sync::Arc, time::SystemTime};
+use std::{fmt, io, process, sync::Arc, time::SystemTime};
 use thiserror::Error;
 
 mod events;
@@ -160,8 +160,6 @@ enum TagMode {
 /// `pmsg` device without paying the price for system calls twice.
 struct Record<'tag, 'msg> {
     timestamp: SystemTime,
-    pid: u16,
-    thread_id: u16,
     buffer_id: Buffer,
     tag: &'tag str,
     priority: Priority,
@@ -440,22 +438,12 @@ impl Builder {
 /// # use android_logd_logger::{Buffer, Priority};
 /// # use std::time::SystemTime;
 ///
-/// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
+/// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, "tag", "message").unwrap();
 /// ```
 #[cfg(target_os = "android")]
-pub fn log(
-    timestamp: SystemTime,
-    buffer_id: Buffer,
-    priority: Priority,
-    pid: u16,
-    thread_id: u16,
-    tag: &str,
-    message: &str,
-) -> Result<(), Error> {
+pub fn log(timestamp: SystemTime, buffer_id: Buffer, priority: Priority, tag: &str, message: &str) -> Result<(), Error> {
     let record = Record {
         timestamp,
-        pid,
-        thread_id,
         buffer_id,
         tag,
         priority,
@@ -477,22 +465,12 @@ pub fn log(
 /// # use android_logd_logger::{Buffer, Priority};
 /// # use std::time::SystemTime;
 ///
-/// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, 0, 0, "tag", "message").unwrap();
+/// android_logd_logger::log(SystemTime::now(), Buffer::Main, Priority::Info, "tag", "message").unwrap();
 /// ```
 #[cfg(not(target_os = "android"))]
-pub fn log(
-    timestamp: SystemTime,
-    buffer_id: Buffer,
-    priority: Priority,
-    pid: u16,
-    thread_id: u16,
-    tag: &str,
-    message: &str,
-) -> Result<(), Error> {
+pub fn log(timestamp: SystemTime, buffer_id: Buffer, priority: Priority, tag: &str, message: &str) -> Result<(), Error> {
     let record = Record {
         timestamp,
-        pid,
-        thread_id,
         buffer_id,
         tag,
         priority,
@@ -520,8 +498,6 @@ fn log_record(record: &Record) -> Result<(), Error> {
         tag,
         priority,
         message,
-        thread_id,
-        pid,
         ..
     } = record;
 
@@ -533,6 +509,14 @@ fn log_record(record: &Record) -> Result<(), Error> {
         })
         .and_then(|ts| ts.format(&DATE_TIME_FORMAT).map_err(|e| Error::Timestamp(e.to_string())))?;
 
-    eprintln!("{} {} {} {} {}: {}", timestamp, pid, thread_id, priority, tag, message);
+    eprintln!(
+        "{} {} {} {} {}: {}",
+        timestamp,
+        process::id(),
+        thread::id(),
+        priority,
+        tag,
+        message
+    );
     Ok(())
 }

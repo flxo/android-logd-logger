@@ -1,8 +1,9 @@
-use crate::{logging_iterator::NewlineScaledChunkIterator, Buffer, Priority, Record};
+use crate::{logging_iterator::NewlineScaledChunkIterator, thread, Buffer, Priority, Record};
 use bytes::{BufMut, BytesMut};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Write},
+    process,
     time::UNIX_EPOCH,
 };
 
@@ -63,11 +64,11 @@ fn log_pmsg_packet(record: &Record, msg_part: &str) {
     let mut buffer = bytes::BytesMut::with_capacity(packet_len as usize);
     let timestamp = record.timestamp.duration_since(UNIX_EPOCH).unwrap();
 
-    write_pmsg_header(&mut buffer, packet_len, DUMMY_UID, record.pid);
+    write_pmsg_header(&mut buffer, packet_len, DUMMY_UID, process::id() as u16);
     write_log_header(
         &mut buffer,
         record.buffer_id,
-        record.thread_id,
+        thread::id() as u16,
         timestamp.as_secs() as u32,
         timestamp.subsec_nanos(),
     );
