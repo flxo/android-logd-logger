@@ -134,8 +134,6 @@ fn smoke() {
         let timestamp = SystemTime::now();
         let record = Record {
             timestamp,
-            pid: std::process::id() as u16,
-            thread_id: thread::id() as u16,
             buffer_id: Buffer::Main,
             tag: "test",
             priority: Priority::Info,
