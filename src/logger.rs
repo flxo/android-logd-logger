@@ -169,7 +169,9 @@ impl Logger {
     ///
     /// See the module documentation for more details.
     pub fn parse_filters(&mut self, filters: &str) -> &mut Self {
-        self.configuration.write().filter = Builder::default().parse(filters).build();
+        let filter = Builder::default().parse(filters).build();
+        log::set_max_level(filter.filter());
+        self.configuration.write().filter = filter;
         self
     }
 
