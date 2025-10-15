@@ -75,8 +75,8 @@ impl LogdSocket {
 /// Send a log message to logd
 pub(crate) fn log(record: &Record) {
     // Tag and message len with null terminator.
-    let tag_len = record.tag.bytes().len() + 1;
-    let message_len = record.message.bytes().len() + 1;
+    let tag_len = record.tag.len() + 1;
+    let message_len = record.message.len() + 1;
     let mut buffer = bytes::BytesMut::with_capacity(12 + tag_len + message_len);
     let timestamp = record.timestamp.duration_since(UNIX_EPOCH).unwrap();
 
