@@ -41,7 +41,7 @@ impl EventValue {
             &EventValue::Void => 0,
             EventValue::Int(_) | EventValue::Float(_) => 1 + 4,
             EventValue::Long(_) => 1 + 8,
-            EventValue::String(s) => 1 + 4 + s.as_bytes().len(),
+            EventValue::String(s) => 1 + 4 + s.len(),
             EventValue::List(l) => 1 + 1 + l.iter().map(EventValue::serialized_size).sum::<usize>(),
         }
     }
