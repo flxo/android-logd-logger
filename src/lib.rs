@@ -18,20 +18,17 @@
 //!
 //! ```
 //! use log::{debug, error, info, trace, warn};
+//! android_logd_logger::builder()
+//!     .parse_filters("debug")
+//!     .tag("MyApp")
+//!     .prepend_module(true)
+//!     .init();
 //!
-//! fn main() {
-//!     android_logd_logger::builder()
-//!         .parse_filters("debug")
-//!         .tag("MyApp")
-//!         .prepend_module(true)
-//!         .init();
-//!
-//!     trace!("trace message: is not logged");
-//!     debug!("debug message");
-//!     info!("info message");
-//!     warn!("warn message");
-//!     error!("error message");
-//! }
+//! trace!("trace message: is not logged");
+//! debug!("debug message");
+//! info!("info message");
+//! warn!("warn message");
+//! error!("error message");
 //! ```
 //!
 //! # Runtime Configuration
