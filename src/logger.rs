@@ -4,17 +4,41 @@ use log::{LevelFilter, Log, Metadata};
 use parking_lot::RwLock;
 use std::{io, process, sync::Arc, time::SystemTime};
 
-/// Logger configuration.
+/// Internal logger configuration.
+///
+/// Stores all configuration parameters for the logger including filters,
+/// tag mode, and buffer settings.
 pub(crate) struct Configuration {
+    /// Log filter for controlling which messages are logged.
     pub(crate) filter: Filter,
+    /// Tag generation mode.
     pub(crate) tag: TagMode,
+    /// Whether to prepend module path to log messages.
     pub(crate) prepend_module: bool,
+    /// Whether to log to pstore (Android only).
     #[allow(unused)]
     pub(crate) pstore: bool,
+    /// Target log buffer.
     pub(crate) buffer_id: Buffer,
 }
 
-/// Logger configuration handler stores access to logger configuration parameters.
+/// Logger configuration handle for runtime adjustments.
+///
+/// This handle allows you to modify logger settings after initialization,
+/// such as changing the log tag, adjusting filter levels, or switching buffers.
+/// All changes take effect immediately for subsequent log messages.
+///
+/// # Examples
+///
+/// ```
+/// use log::LevelFilter;
+///
+/// let logger = android_logd_logger::builder().init();
+///
+/// // Change settings at runtime
+/// logger.tag("NewTag");
+/// logger.filter_level(LevelFilter::Warn);
+/// ```
 #[derive(Clone)]
 pub struct Logger {
     pub(crate) configuration: Arc<RwLock<Configuration>>,
@@ -38,7 +62,7 @@ impl Logger {
         self
     }
 
-    // Sets tag parameter of logger configuration to custom value
+    /// Sets tag parameter of logger configuration to custom value
     ///
     /// # Examples
     ///
@@ -194,12 +218,17 @@ impl Logger {
     }
 }
 
-/// Logger implementation.
+/// Internal logger implementation.
+///
+/// This is the actual logger that implements the `log::Log` trait and handles
+/// the formatting and writing of log messages to the appropriate destinations.
 pub(crate) struct LoggerImpl {
+    /// Shared configuration that can be updated at runtime.
     configuration: Arc<RwLock<Configuration>>,
 }
 
 impl LoggerImpl {
+    /// Creates a new logger implementation with the given configuration.
     pub fn new(configuration: Arc<RwLock<Configuration>>) -> Result<LoggerImpl, io::Error> {
         Ok(LoggerImpl { configuration })
     }

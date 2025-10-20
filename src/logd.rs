@@ -1,3 +1,9 @@
+//! Android logd socket communication.
+//!
+//! This module handles direct communication with Android's `logd` daemon via
+//! Unix domain sockets. It provides low-level functions for writing log messages
+//! and events to the various log buffers.
+
 use std::{
     io::{self, ErrorKind},
     os::unix::net::UnixDatagram,
@@ -10,25 +16,31 @@ use parking_lot::RwLockUpgradableReadGuard;
 
 use crate::{thread, Buffer, Event, Record, LOGGER_ENTRY_MAX_LEN};
 
-/// Logd write socket path
+/// Path to the logd write socket.
 const LOGDW: &str = "/dev/socket/logdw";
 
 lazy_static::lazy_static! {
     static ref SOCKET: LogdSocket = LogdSocket::connect(Path::new(LOGDW));
 }
 
-/// Logd write socket abstraction. Sends never fail and on each send a reconnect
-/// attempt is made.
+/// Logd write socket abstraction.
+///
+/// This socket wrapper handles automatic reconnection on failures and uses
+/// non-blocking I/O to avoid blocking the application if logd is under heavy load.
+/// Failed writes are silently discarded rather than blocking or returning errors.
 struct LogdSocket {
     socket: parking_lot::RwLock<UnixDatagram>,
 }
 
 impl LogdSocket {
-    /// Construct a new LogdSocket.
+    /// Constructs a new LogdSocket connected to the specified path.
+    ///
+    /// The socket is created as non-blocking to prevent the application from
+    /// hanging if logd is slow or unavailable.
     ///
     /// # Panics
     ///
-    /// This function panics when the socket cannot be created.
+    /// Panics if the socket cannot be created.
     pub fn connect(path: &Path) -> LogdSocket {
         let socket = UnixDatagram::unbound().expect("failed to create socket");
 
@@ -45,8 +57,15 @@ impl LogdSocket {
         LogdSocket { socket: lock }
     }
 
-    /// Write a log entry to the log daemon. If a first write attempt fails, try to
-    /// reconnect to the log daemon and try again.
+    /// Writes data to the log daemon socket.
+    ///
+    /// If the first write attempt fails (except for `WouldBlock`), this method
+    /// attempts to reconnect to the log daemon and retry the write.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reconnection or the retry write fails. `WouldBlock`
+    /// errors are silently ignored (the log message is dropped).
     pub fn send(&self, buffer: &[u8]) -> io::Result<()> {
         let lock = self.socket.upgradable_read();
         match lock.send(buffer) {
@@ -72,7 +91,10 @@ impl LogdSocket {
     }
 }
 
-/// Send a log message to logd
+/// Sends a log message to the logd daemon.
+///
+/// Formats the log record according to the logd protocol and writes it to
+/// the logd socket. Failed writes are logged to stderr but do not propagate errors.
 pub(crate) fn log(record: &Record) {
     // Tag and message len with null terminator.
     let tag_len = record.tag.len() + 1;
@@ -96,7 +118,11 @@ pub(crate) fn log(record: &Record) {
     }
 }
 
-/// Send a log event to logd
+/// Sends a binary event to the logd daemon.
+///
+/// Formats the event according to the logd event protocol and writes it to
+/// the specified log buffer. Failed writes are logged to stderr but do not
+/// propagate errors.
 pub(crate) fn write_event(log_buffer: Buffer, event: &Event) {
     let mut buffer = bytes::BytesMut::with_capacity(LOGGER_ENTRY_MAX_LEN);
     let timestamp = event.timestamp.duration_since(UNIX_EPOCH).unwrap();

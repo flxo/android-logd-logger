@@ -12,10 +12,10 @@
 [actions-url]: https://github.com/flxo/android-logd-logger/actions?query=workflow%3ACI+branch%3Amaster
 
 This logger writes logs to the Android `logd`, a system service with
-multiple ringbuffers for logs and evens. This is normally done
-via `liblog` (a native Android lib). Instead of using `liblog`, this crate
-writes directly to the `logd` socket with the trivial protocol below.
-This logger is written in pure Rust without any need for ffi.
+multiple ring buffers for logs and events. This is normally done
+via `liblog` (a native Android library). Instead of using `liblog`, this crate
+writes directly to the `logd` socket with a simple protocol.
+This logger is written in pure Rust without any need for FFI.
 
 On non Android system the log output is printed to stdout in the default
 format of `logcat`.
@@ -33,11 +33,12 @@ Initialize the logger with a fixed `tag` and the module path included
 in the log payload.
 
 ```rust
+use log::{debug, error, info, trace, warn};
 
 fn main() {
     android_logd_logger::builder()
         .parse_filters("debug")
-        .tag(TagMode::TargetStrip)
+        .tag("MyApp")
         .prepend_module(true)
         .init();
 
@@ -49,7 +50,25 @@ fn main() {
 }
 ```
 
-To write android logd "events" use `event` or `event_now`, e.g:
+## Runtime Configuration
+
+The logger can be reconfigured at runtime using the returned `Logger` handle:
+
+```rust
+use log::LevelFilter;
+
+fn main() {
+    let logger = android_logd_logger::builder()
+        .tag("MyApp")
+        .init();
+
+    // Change settings at runtime
+    logger.tag("NewTag");
+    logger.filter_level(LevelFilter::Warn);
+}
+```
+
+To write Android logd "events" use `write_event_now`, e.g:
 
 ```rust
 android_logd_logger::write_event_now(1, "test").unwrap();

@@ -1,12 +1,25 @@
+//! Android event logging support.
+//!
+//! This module provides functionality for writing structured binary events to Android's
+//! event log buffer. Events consist of a tag (numeric identifier) and a value that can
+//! be a primitive type, string, or list of values.
+
 use bytes::{BufMut, Bytes, BytesMut};
 use std::{iter::FromIterator, time::SystemTime};
 
 use crate::{Buffer, Error, LOGGER_ENTRY_MAX_LEN};
 
-/// Event tag
+/// Event tag identifier.
+///
+/// A numeric identifier used to categorize events. Event tags are typically
+/// defined in Android's event-log-tags files.
 pub type EventTag = u32;
 
-/// Event data
+/// An event log entry.
+///
+/// Events are structured log entries that consist of a timestamp, a numeric tag,
+/// and a value. They are written to Android's event log buffer and can be viewed
+/// with `logcat -b events`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Event {
     /// Timestamp
@@ -17,7 +30,28 @@ pub struct Event {
     pub value: EventValue,
 }
 
-/// Event's value
+/// The value payload of an event.
+///
+/// Event values can be primitives (int, long, float), strings, or lists of values.
+/// This allows for structured logging of complex data.
+///
+/// # Examples
+///
+/// ```
+/// use android_logd_logger::EventValue;
+///
+/// // Simple values
+/// let int_val: EventValue = 42.into();
+/// let str_val: EventValue = "hello".into();
+/// let float_val: EventValue = 3.14.into();
+///
+/// // List of values
+/// let list_val: EventValue = vec![
+///     EventValue::Int(1),
+///     EventValue::String("test".to_string()),
+///     EventValue::Float(2.5)
+/// ].into();
+/// ```
 #[derive(Debug, PartialEq, Clone)]
 pub enum EventValue {
     /// Void value
@@ -35,7 +69,9 @@ pub enum EventValue {
 }
 
 impl EventValue {
-    /// Serialied size
+    /// Returns the serialized size of this value in bytes.
+    ///
+    /// This includes the type tag and the value data.
     pub fn serialized_size(&self) -> usize {
         match self {
             &EventValue::Void => 0,
@@ -46,7 +82,10 @@ impl EventValue {
         }
     }
 
-    /// Serialize the event value into bytes
+    /// Serializes the event value into bytes.
+    ///
+    /// The serialization format follows Android's event log binary format,
+    /// with a type tag followed by the value data.
     pub fn as_bytes(&self) -> Bytes {
         const EVENT_TYPE_INT: u8 = 0;
         const EVENT_TYPE_LONG: u8 = 1;
@@ -184,7 +223,22 @@ where
     }
 }
 
-/// Write an event with the timestamp now to `Buffer::Events`
+/// Writes an event with the current timestamp to the events buffer.
+///
+/// This is a convenience function that creates an event with the current system
+/// time and writes it to `Buffer::Events`.
+///
+/// # Parameters
+///
+/// - `tag`: The event tag identifier
+/// - `value`: The event value (can be any type that converts to `EventValue`)
+///
+/// # Errors
+///
+/// Returns an error if the event data exceeds the maximum size.
+///
+/// # Examples
+///
 /// ```
 /// use android_logd_logger::{write_event, write_event_now, Error, Event, EventValue};
 /// android_logd_logger::builder().init();
@@ -202,7 +256,23 @@ pub fn write_event_now<T: Into<EventValue>>(tag: EventTag, value: T) -> Result<(
     })
 }
 
-/// Write an event with the timestamp now to buffer
+/// Writes an event with the current timestamp to a specific buffer.
+///
+/// This is a convenience function that creates an event with the current system
+/// time and writes it to the specified buffer.
+///
+/// # Parameters
+///
+/// - `log_buffer`: The target log buffer
+/// - `tag`: The event tag identifier
+/// - `value`: The event value (can be any type that converts to `EventValue`)
+///
+/// # Errors
+///
+/// Returns an error if the event data exceeds the maximum size.
+///
+/// # Examples
+///
 /// ```
 /// use android_logd_logger::{write_event_buffer_now, Buffer, Error, Event, EventValue};
 /// android_logd_logger::builder().init();
@@ -223,7 +293,18 @@ pub fn write_event_buffer_now<T: Into<EventValue>>(log_buffer: Buffer, tag: Even
     )
 }
 
-/// Write an event to `Buffer::Events`
+/// Writes an event to the events buffer.
+///
+/// # Parameters
+///
+/// - `event`: The event to write
+///
+/// # Errors
+///
+/// Returns an error if the event data exceeds the maximum size.
+///
+/// # Examples
+///
 /// ```
 /// use android_logd_logger::{write_event, Error, Event, EventValue};
 /// android_logd_logger::builder().init();
@@ -238,7 +319,19 @@ pub fn write_event(event: &Event) -> Result<(), Error> {
     write_event_buffer(Buffer::Events, event)
 }
 
-/// Write an event to an explicit buffer
+/// Writes an event to a specific buffer.
+///
+/// # Parameters
+///
+/// - `log_buffer`: The target log buffer
+/// - `event`: The event to write
+///
+/// # Errors
+///
+/// Returns an error if the event data exceeds the maximum size.
+///
+/// # Examples
+///
 /// ```
 /// use android_logd_logger::{write_event_buffer, Buffer, Error, Event, EventValue};
 /// android_logd_logger::builder().init();
